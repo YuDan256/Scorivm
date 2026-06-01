@@ -147,7 +147,7 @@ static void print_operand(char* buf, X86Operand* op) {
             sprintf(buf, "%s", op->as.label);
             break;
         case X86_OP_BLOCK:
-            sprintf(buf, ".Lblock_%u", op->as.block_id);
+            sprintf(buf, ".Lblock_%u", op->as.block->global_id);
             break;
         case X86_OP_STRING:
             sprintf(buf, ".Lstr%d(%%rip)", get_string_id(op->as.string.str, op->as.string.len));
@@ -241,7 +241,7 @@ static void generate_x86_function(FILE* out, X86Function* func) {
         if (block != func->first_block) {
             fprintf(out, "    .p2align 4\n");
         }
-        fprintf(out, ".Lblock_%u:\n", block->id);
+        fprintf(out, ".Lblock_%u:\n", block->global_id);
 
         for (X86Inst* inst = block->first_inst; inst; inst = inst->next) {
             char op0[64] = {0}, op1[64] = {0}, op2[64] = {0};

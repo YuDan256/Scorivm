@@ -38,7 +38,7 @@ typedef struct {
         struct { X86Reg base; int32_t disp; } mem_bd;
         struct { X86Reg base; X86Reg index; int scale; int32_t disp; } mem_sib;
         const char* label;
-        uint32_t block_id;
+        struct X86Block* block;
         struct { const char* str; uint32_t len; } string;
     } as;
 } X86Operand;
@@ -84,7 +84,9 @@ typedef struct X86Inst {
 
 typedef struct X86Block {
     uint32_t id;
+    uint32_t global_id; // 用于汇编输出的全局唯一 ID
     const char* name;
+    uint32_t offset; // 在 .text 段中的偏移量 (由 linker 填充)
     X86Inst* first_inst;
     X86Inst* last_inst;
     struct X86Block* next;

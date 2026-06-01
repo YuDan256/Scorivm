@@ -71,7 +71,6 @@ typedef struct {
     const char** globals; uint32_t* global_offsets; int global_count;
     const char** funcs; uint32_t* func_offsets; int func_count;
     SirExternFunc* first_extern;
-    uint32_t max_block_id; uint32_t* block_offsets;
 } LinkCtx;
 
 #define MAX_RELOCS 65536
@@ -238,8 +237,7 @@ static void emit_x86_inst(PeCodeBuffer* cb, X86Inst* inst, LinkCtx* ctx) {
             break;
         }
         case X86_INST_JMP: case X86_INST_JCC: {
-            uint32_t target_id = op0->as.block_id;
-            uint32_t target_off = target_id <= ctx->max_block_id ? ctx->block_offsets[target_id] : 0;
+            uint32_t target_off = op0->as.block->offset;
             if (opc == X86_INST_JMP) { emit8(cb, 0xE9); } else {
                 uint8_t cc = 0x80;
                 if (inst->cond == X86_COND_E) cc = 0x84; else if (inst->cond == X86_COND_NE) cc = 0x85; else if (inst->cond == X86_COND_L) cc = 0x8C;
@@ -351,14 +349,6 @@ static void generate_machine_code(PeLinker* linker, SirModule* module, int opt_l
 
     X86Module* mir = x86_mir_build(module, opt_level);
 
-    uint32_t max_block_id = 0;
-    for (X86Function* func = mir->first_func; func; func = func->next) {
-        for (X86Block* block = func->first_block; block; block = block->next) {
-            if (block->id > max_block_id) max_block_id = block->id;
-        }
-    }
-    uint32_t* block_offsets = (uint32_t*)calloc(max_block_id + 1, sizeof(uint32_t));
-    
     int func_capacity = 256;
     const char** func_names = (const char**)malloc(func_capacity * sizeof(const char*));
     uint32_t* func_offsets = (uint32_t*)malloc(func_capacity * sizeof(uint32_t));
@@ -451,7 +441,7 @@ static void generate_machine_code(PeLinker* linker, SirModule* module, int opt_l
         ctx.pass = pass; ctx.strings = strings; ctx.string_lens = string_lens; ctx.string_offsets = string_offsets; ctx.string_count = string_count;
         ctx.globals = global_names; ctx.global_offsets = global_offsets; ctx.global_count = global_count;
         ctx.funcs = func_names; ctx.func_offsets = func_offsets; ctx.func_count = func_count;
-        ctx.first_extern = module->first_extern; ctx.max_block_id = max_block_id; ctx.block_offsets = block_offsets;
+        ctx.first_extern = module->first_extern;
 
         int current_func_idx = 0;
         for (X86Function* func = mir->first_func; func; func = func->next) {
@@ -463,7 +453,7 @@ static void generate_machine_code(PeLinker* linker, SirModule* module, int opt_l
 
             for (X86Block* block = func->first_block; block; block = block->next) {
                 if (block != func->first_block) { while (linker->text_section.size % 16 != 0) emit8(&linker->text_section, 0x90); }
-                if (block->id <= max_block_id) block_offsets[block->id] = (uint32_t)linker->text_section.size;
+                block->offset = (uint32_t)linker->text_section.size;
                 for (X86Inst* inst = block->first_inst; inst; inst = inst->next) emit_x86_inst(&linker->text_section, inst, &ctx);
             }
         }
@@ -501,7 +491,7 @@ static void generate_machine_code(PeLinker* linker, SirModule* module, int opt_l
         emit32(cb, 0);
     }
 
-    x86_mir_free(mir); free(block_offsets); free(func_names); free(func_offsets);
+    x86_mir_free(mir); free(func_names); free(func_offsets);
     free(strings); free(string_lens); free(string_offsets); free(global_names); free(global_offsets);
 }
 
