@@ -402,6 +402,17 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
             ScoriaType* operand_type = check_expression(checker, expr->as.unary.operand, operand_expected);
             
             if (expr->as.unary.op.kind == TK_KW_LOCUS) {
+                // 检查是否对位域取址
+                if (expr->as.unary.operand->kind == AST_MEMBER_EXPR) {
+                    ScoriaType* obj_type = expr->as.unary.operand->as.member_expr.object->expr_type;
+                    if (obj_type && obj_type->kind == TY_VIA) obj_type = obj_type->as.inner;
+                    if (obj_type && (obj_type->kind == TY_FORMA || obj_type->kind == TY_UNIO)) {
+                        int bit_size = 0;
+                        if (type_get_field_layout(obj_type, expr->as.unary.operand->as.member_expr.property, NULL, NULL, &bit_size) && bit_size > 0) {
+                            type_error(checker, expr->token, "Locus micae sumi non potest.");
+                        }
+                    }
+                }
                 type = type_get_via(operand_type);
             } else if (expr->as.unary.op.kind == TK_KW_TENE) {
                 if (operand_type->kind == TY_VIA) {
@@ -865,7 +876,33 @@ static void collect_declarations(TypeChecker* checker, AstNode* program) {
                 for (int j = 0; j < decl->as.struct_decl.field_count; j++) {
                     AstNode* field = decl->as.struct_decl.fields[j];
                     ScoriaType* field_type = resolve_type_node(checker, field->as.var_decl.type);
-                    type_forma_add_field(comp_type, field->as.var_decl.name, field_type);
+                    
+                    uint8_t bit_size = 0;
+                    if (field->as.var_decl.bit_size) {
+                        if (decl->kind == AST_UNION_DECL) {
+                            type_error(checker, field->as.var_decl.bit_size->token, "Mica in unione adhiberi non potest.");
+                        }
+                        
+                        // 简单常量折叠求值
+                        if (field->as.var_decl.bit_size->kind == AST_LITERAL_EXPR && field->as.var_decl.bit_size->token.kind == TK_INT_CONST) {
+                            parse_and_check_literal(checker, field->as.var_decl.bit_size, type_get_basic(TY_I32), false);
+                            int64_t val = field->as.var_decl.bit_size->as.literal_expr.int_val;
+                            if (val <= 0 || val > 64) {
+                                type_error(checker, field->as.var_decl.bit_size->token, "Magnitudo micae inter 1 et 64 esse debet.");
+                            } else {
+                                bit_size = (uint8_t)val;
+                            }
+                        } else {
+                            type_error(checker, field->as.var_decl.bit_size->token, "Magnitudo micae constans integer esse debet.");
+                        }
+                        
+                        // 检查类型是否允许位域
+                        if (field_type->kind != TY_LOGICA && (field_type->kind < TY_I8 || field_type->kind > TY_P64)) {
+                            type_error(checker, field->as.var_decl.name, "Mica ad typum integrum vel logicum solum applicari potest.");
+                        }
+                    }
+                    
+                    type_forma_add_field(comp_type, field->as.var_decl.name, field_type, bit_size);
                 }
             }
         } 

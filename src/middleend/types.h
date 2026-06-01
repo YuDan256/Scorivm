@@ -30,6 +30,7 @@ typedef struct ScoriaType ScoriaType;
 typedef struct {
     Token name;
     ScoriaType* type;
+    uint8_t bit_size; // 0 表示非位域
 } StructField;
 
 // 枚举变体
@@ -91,7 +92,7 @@ ScoriaType* type_get_acies(ScoriaType* inner, uint32_t length);
 // 创建结构体、联合体和函数类型
 ScoriaType* type_create_forma(Token name, bool is_densa);
 ScoriaType* type_create_unio(Token name, bool is_densa);
-void type_forma_add_field(ScoriaType* forma_type, Token name, ScoriaType* field_type);
+void type_forma_add_field(ScoriaType* forma_type, Token name, ScoriaType* field_type, uint8_t bit_size);
 
 ScoriaType* type_create_enum(Token name);
 void type_enum_add_variant(ScoriaType* enum_type, Token name, int64_t value);
@@ -109,6 +110,9 @@ int type_get_align(ScoriaType* type);
 
 // 获取结构体/联合体中指定字段的内存偏移量 (字节)
 int type_get_field_offset(ScoriaType* type, Token field_name);
+
+// 获取字段的完整布局信息 (字节偏移和位偏移)
+bool type_get_field_layout(ScoriaType* type, Token field_name, int* out_byte_offset, int* out_bit_offset, int* out_bit_size);
 
 // 判断类型是否有符号/无符号
 bool type_is_signed(ScoriaType* type);

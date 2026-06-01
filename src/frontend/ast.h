@@ -101,6 +101,7 @@ struct AstNode {
             AstNode* type;
             AstNode* initializer;
             bool is_editus;
+            AstNode* bit_size; // 位域大小 (可选)
         } var_decl;
 
         struct {

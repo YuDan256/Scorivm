@@ -161,13 +161,14 @@ ScoriaType* type_create_unio(Token name, bool is_densa) {
     return t; // 联合体通过名字区分，不放入 intern 池
 }
 
-void type_forma_add_field(ScoriaType* forma_type, Token name, ScoriaType* field_type) {
+void type_forma_add_field(ScoriaType* forma_type, Token name, ScoriaType* field_type, uint8_t bit_size) {
     if (forma_type->kind != TY_FORMA && forma_type->kind != TY_UNIO) return;
     
     int count = forma_type->as.struct_type.field_count;
     forma_type->as.struct_type.fields = realloc(forma_type->as.struct_type.fields, sizeof(StructField) * (count + 1));
     forma_type->as.struct_type.fields[count].name = name;
     forma_type->as.struct_type.fields[count].type = field_type;
+    forma_type->as.struct_type.fields[count].bit_size = bit_size;
     forma_type->as.struct_type.field_count++;
 }
 
@@ -223,26 +224,71 @@ int type_get_align(ScoriaType* type) {
     }
 }
 
-int type_get_field_offset(ScoriaType* type, Token field_name) {
-    if (!type || (type->kind != TY_FORMA && type->kind != TY_UNIO)) return -1;
-    if (type->kind == TY_UNIO) return 0; // 联合体的所有字段偏移量均为 0
+bool type_get_field_layout(ScoriaType* type, Token field_name, int* out_byte_offset, int* out_bit_offset, int* out_bit_size) {
+    if (!type || (type->kind != TY_FORMA && type->kind != TY_UNIO)) return false;
+    if (type->kind == TY_UNIO) {
+        if (out_byte_offset) *out_byte_offset = 0;
+        if (out_bit_offset) *out_bit_offset = 0;
+        for (int i = 0; i < type->as.struct_type.field_count; i++) {
+            if (type->as.struct_type.fields[i].name.length == field_name.length &&
+                memcmp(type->as.struct_type.fields[i].name.start, field_name.start, field_name.length) == 0) {
+                if (out_bit_size) *out_bit_size = type->as.struct_type.fields[i].bit_size;
+                return true;
+            }
+        }
+        return false;
+    }
 
-    int offset = 0;
+    int byte_offset = 0;
+    int bit_offset = 0;
+
     for (int i = 0; i < type->as.struct_type.field_count; i++) {
         StructField field = type->as.struct_type.fields[i];
-        
-        // 如果不是 densa，则需要加上对齐填充
-        if (!type->as.struct_type.is_densa) {
-            int field_align = type_get_align(field.type);
-            offset = (offset + field_align - 1) & ~(field_align - 1);
+        int field_size = type_get_size(field.type);
+        int field_align = type->as.struct_type.is_densa ? 1 : type_get_align(field.type);
+
+        if (field.bit_size > 0) {
+            if (!type->as.struct_type.is_densa) {
+                int type_bits = field_size * 8;
+                if (bit_offset > 0 && (bit_offset % type_bits + field.bit_size > type_bits)) {
+                    byte_offset += (bit_offset + 7) / 8;
+                    bit_offset = 0;
+                    byte_offset = (byte_offset + field_align - 1) & ~(field_align - 1);
+                } else if (bit_offset == 0) {
+                    byte_offset = (byte_offset + field_align - 1) & ~(field_align - 1);
+                }
+            }
+        } else {
+            if (bit_offset > 0) {
+                byte_offset += (bit_offset + 7) / 8;
+                bit_offset = 0;
+            }
+            if (!type->as.struct_type.is_densa) {
+                byte_offset = (byte_offset + field_align - 1) & ~(field_align - 1);
+            }
         }
 
         if (field.name.length == field_name.length &&
             memcmp(field.name.start, field_name.start, field.name.length) == 0) {
-            return offset;
+            if (out_byte_offset) *out_byte_offset = byte_offset + (bit_offset / 8);
+            if (out_bit_offset) *out_bit_offset = bit_offset % 8;
+            if (out_bit_size) *out_bit_size = field.bit_size;
+            return true;
         }
 
-        offset += type_get_size(field.type);
+        if (field.bit_size > 0) {
+            bit_offset += field.bit_size;
+        } else {
+            byte_offset += field_size;
+        }
+    }
+    return false;
+}
+
+int type_get_field_offset(ScoriaType* type, Token field_name) {
+    int byte_offset = 0;
+    if (type_get_field_layout(type, field_name, &byte_offset, NULL, NULL)) {
+        return byte_offset;
     }
     return -1;
 }
@@ -259,21 +305,50 @@ int type_get_size(ScoriaType* type) {
         case TY_COHORS: return 16;
         case TY_ACIES: return type->as.array.length * type_get_size(type->as.array.inner);
         case TY_FORMA: {
-            int size = 0;
+            int byte_offset = 0;
+            int bit_offset = 0;
             int max_align = 1;
+            
             for (int i = 0; i < type->as.struct_type.field_count; i++) {
-                int field_size = type_get_size(type->as.struct_type.fields[i].type);
-                int field_align = type->as.struct_type.is_densa ? 1 : type_get_align(type->as.struct_type.fields[i].type);
+                StructField field = type->as.struct_type.fields[i];
+                int field_size = type_get_size(field.type);
+                int field_align = type->as.struct_type.is_densa ? 1 : type_get_align(field.type);
                 if (field_align > max_align) max_align = field_align;
-                if (!type->as.struct_type.is_densa) {
-                    size = (size + field_align - 1) & ~(field_align - 1);
+                
+                if (field.bit_size > 0) {
+                    if (type->as.struct_type.is_densa) {
+                        bit_offset += field.bit_size;
+                    } else {
+                        int type_bits = field_size * 8;
+                        if (bit_offset > 0 && (bit_offset % type_bits + field.bit_size > type_bits)) {
+                            byte_offset += (bit_offset + 7) / 8;
+                            bit_offset = 0;
+                            byte_offset = (byte_offset + field_align - 1) & ~(field_align - 1);
+                        } else if (bit_offset == 0) {
+                            byte_offset = (byte_offset + field_align - 1) & ~(field_align - 1);
+                        }
+                        bit_offset += field.bit_size;
+                    }
+                } else {
+                    if (bit_offset > 0) {
+                        byte_offset += (bit_offset + 7) / 8;
+                        bit_offset = 0;
+                    }
+                    if (!type->as.struct_type.is_densa) {
+                        byte_offset = (byte_offset + field_align - 1) & ~(field_align - 1);
+                    }
+                    byte_offset += field_size;
                 }
-                size += field_size;
             }
+            
+            if (bit_offset > 0) {
+                byte_offset += (bit_offset + 7) / 8;
+            }
+            
             if (!type->as.struct_type.is_densa) {
-                size = (size + max_align - 1) & ~(max_align - 1);
+                byte_offset = (byte_offset + max_align - 1) & ~(max_align - 1);
             }
-            return size;
+            return byte_offset;
         }
         case TY_UNIO: {
             int max_size = 0;

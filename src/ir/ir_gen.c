@@ -54,9 +54,10 @@ static bool evaluate_const_expr(IrBuilder* builder, AstNode* expr, uint8_t* buff
             int byte_offset = 0;
             ScoriaType* field_type = NULL;
             
+            int bit_offset = 0;
+            int bit_size = 0;
             if (struct_type->kind == TY_FORMA || struct_type->kind == TY_UNIO) {
-                byte_offset = type_get_field_offset(struct_type, field_name);
-                if (byte_offset >= 0) {
+                if (type_get_field_layout(struct_type, field_name, &byte_offset, &bit_offset, &bit_size)) {
                     for (int j = 0; j < struct_type->as.struct_type.field_count; j++) {
                         StructField f = struct_type->as.struct_type.fields[j];
                         if (f.name.length == field_name.length && memcmp(f.name.start, field_name.start, f.name.length) == 0) {
@@ -68,8 +69,26 @@ static bool evaluate_const_expr(IrBuilder* builder, AstNode* expr, uint8_t* buff
             }
             
             if (field_type) {
-                if (!evaluate_const_expr(builder, field_val, buffer + byte_offset, type_get_size(field_type))) {
-                    return false;
+                if (bit_size > 0) {
+                    uint8_t temp_buf[8] = {0};
+                    if (!evaluate_const_expr(builder, field_val, temp_buf, type_get_size(field_type))) return false;
+                    uint64_t val = 0;
+                    memcpy(&val, temp_buf, type_get_size(field_type));
+                    
+                    uint64_t mem = 0;
+                    memcpy(&mem, buffer + byte_offset, type_get_size(field_type));
+                    
+                    uint64_t mask = (bit_size == 64) ? ~0ULL : ((1ULL << bit_size) - 1);
+                    val &= mask;
+                    
+                    uint64_t clear_mask = ~(mask << bit_offset);
+                    mem = (mem & clear_mask) | (val << bit_offset);
+                    
+                    memcpy(buffer + byte_offset, &mem, type_get_size(field_type));
+                } else {
+                    if (!evaluate_const_expr(builder, field_val, buffer + byte_offset, type_get_size(field_type))) {
+                        return false;
+                    }
                 }
             }
         }
@@ -346,6 +365,22 @@ static void gen_scribe_value(IrBuilder* builder, SirValue* callee, ScoriaType* t
                 gen_scribe_call(builder, callee, field_ptr);
             } else {
                 SirValue* field_val = ir_build_load(builder, field_ptr);
+                if (field.bit_size > 0) {
+                    int bit_offset = 0;
+                    type_get_field_layout(type, field.name, NULL, &bit_offset, NULL);
+                    if (bit_offset > 0) {
+                        field_val = ir_build_binary(builder, SIR_SHR, field_val, ir_const_int(builder, field.type, bit_offset));
+                    }
+                    uint64_t mask_val = (field.bit_size == 64) ? ~0ULL : ((1ULL << field.bit_size) - 1);
+                    field_val = ir_build_binary(builder, SIR_AND, field_val, ir_const_int(builder, field.type, mask_val));
+                    if (type_is_signed(field.type)) {
+                        int shift_amt = type_get_size(field.type) * 8 - field.bit_size;
+                        if (shift_amt > 0) {
+                            field_val = ir_build_binary(builder, SIR_SHL, field_val, ir_const_int(builder, field.type, shift_amt));
+                            field_val = ir_build_binary(builder, SIR_SHR, field_val, ir_const_int(builder, field.type, shift_amt));
+                        }
+                    }
+                }
                 gen_scribe_call(builder, callee, field_val);
             }
             
@@ -748,6 +783,8 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                 int byte_offset = 0;
                 ScoriaType* field_type = NULL;
                 
+                int bit_offset = 0;
+                int bit_size = 0;
                 if (struct_type->kind == TY_COHORS) {
                     if (field_name.length == 5 && strncmp(field_name.start, "caput", 5) == 0) {
                         byte_offset = 0;
@@ -757,8 +794,7 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                         field_type = type_get_basic(TY_I64);
                     }
                 } else if (struct_type->kind == TY_FORMA || struct_type->kind == TY_UNIO) {
-                    byte_offset = type_get_field_offset(struct_type, field_name);
-                    if (byte_offset >= 0) {
+                    if (type_get_field_layout(struct_type, field_name, &byte_offset, &bit_offset, &bit_size)) {
                         for (int j = 0; j < struct_type->as.struct_type.field_count; j++) {
                             StructField f = struct_type->as.struct_type.fields[j];
                             if (f.name.length == field_name.length && memcmp(f.name.start, field_name.start, f.name.length) == 0) {
@@ -773,7 +809,20 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                     SirValue* index_val = ir_const_int(builder, type_get_basic(TY_I32), byte_offset);
                     SirValue* field_ptr = ir_build_gep(builder, struct_ptr, index_val, 1, type_get_via(field_type));
                     
-                    if (field_type->kind == TY_FORMA || field_type->kind == TY_UNIO || field_type->kind == TY_ACIES || field_type->kind == TY_COHORS) {
+                    if (bit_size > 0) {
+                        SirValue* mem_val = ir_build_load(builder, field_ptr);
+                        uint64_t mask_val = (bit_size == 64) ? ~0ULL : ((1ULL << bit_size) - 1);
+                        SirValue* mask = ir_const_int(builder, field_type, mask_val);
+                        SirValue* val_masked = ir_build_binary(builder, SIR_AND, field_val, mask);
+                        SirValue* val_shifted = ir_build_binary(builder, SIR_SHL, val_masked, ir_const_int(builder, field_type, bit_offset));
+                        
+                        uint64_t clear_mask_val = ~(mask_val << bit_offset);
+                        SirValue* clear_mask = ir_const_int(builder, field_type, clear_mask_val);
+                        SirValue* mem_cleared = ir_build_binary(builder, SIR_AND, mem_val, clear_mask);
+                        
+                        SirValue* new_mem = ir_build_binary(builder, SIR_OR, mem_cleared, val_shifted);
+                        ir_build_store(builder, new_mem, field_ptr);
+                    } else if (field_type->kind == TY_FORMA || field_type->kind == TY_UNIO || field_type->kind == TY_ACIES || field_type->kind == TY_COHORS) {
                         ir_build_memcpy(builder, field_ptr, field_val, type_get_size(field_type));
                     } else {
                         ir_build_store(builder, field_val, field_ptr);
@@ -826,9 +875,37 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                 // 2. 对右值求值
                 SirValue* val = gen_expression(builder, expr->as.assign.value);
                 
+                int bit_offset = 0, bit_size = 0;
+                bool is_bitfield = false;
+                ScoriaType* bf_type = NULL;
+                
+                if (expr->as.assign.target->kind == AST_MEMBER_EXPR) {
+                    ScoriaType* obj_type = expr->as.assign.target->as.member_expr.object->expr_type;
+                    if (obj_type && obj_type->kind == TY_VIA) obj_type = obj_type->as.inner;
+                    if (type_get_field_layout(obj_type, expr->as.assign.target->as.member_expr.property, NULL, &bit_offset, &bit_size) && bit_size > 0) {
+                        is_bitfield = true;
+                        bf_type = expr->as.assign.target->expr_type;
+                    }
+                }
+                
                 // 3. 如果是复合赋值 (+=, -= 等)，执行 Load -> Op
                 if (expr->as.assign.op.kind != TK_ASSIGN && lval) {
                     SirValue* current_val = ir_build_load(builder, lval);
+                    if (is_bitfield) {
+                        if (bit_offset > 0) {
+                            current_val = ir_build_binary(builder, SIR_SHR, current_val, ir_const_int(builder, bf_type, bit_offset));
+                        }
+                        uint64_t mask_val = (bit_size == 64) ? ~0ULL : ((1ULL << bit_size) - 1);
+                        current_val = ir_build_binary(builder, SIR_AND, current_val, ir_const_int(builder, bf_type, mask_val));
+                        if (type_is_signed(bf_type)) {
+                            int shift_amt = type_get_size(bf_type) * 8 - bit_size;
+                            if (shift_amt > 0) {
+                                current_val = ir_build_binary(builder, SIR_SHL, current_val, ir_const_int(builder, bf_type, shift_amt));
+                                current_val = ir_build_binary(builder, SIR_SHR, current_val, ir_const_int(builder, bf_type, shift_amt));
+                            }
+                        }
+                    }
+                    
                     SirOpcode op = SIR_ADD;
                     bool is_float = (type && (type->kind == TY_F32 || type->kind == TY_F64));
                     switch (expr->as.assign.op.kind) {
@@ -849,7 +926,22 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                 
                 // 4. Store 回内存
                 if (lval) {
-                    ir_build_store(builder, val, lval);
+                    if (is_bitfield) {
+                        SirValue* mem_val = ir_build_load(builder, lval);
+                        uint64_t mask_val = (bit_size == 64) ? ~0ULL : ((1ULL << bit_size) - 1);
+                        SirValue* mask = ir_const_int(builder, bf_type, mask_val);
+                        SirValue* val_masked = ir_build_binary(builder, SIR_AND, val, mask);
+                        SirValue* val_shifted = ir_build_binary(builder, SIR_SHL, val_masked, ir_const_int(builder, bf_type, bit_offset));
+                        
+                        uint64_t clear_mask_val = ~(mask_val << bit_offset);
+                        SirValue* clear_mask = ir_const_int(builder, bf_type, clear_mask_val);
+                        SirValue* mem_cleared = ir_build_binary(builder, SIR_AND, mem_val, clear_mask);
+                        
+                        SirValue* new_mem = ir_build_binary(builder, SIR_OR, mem_cleared, val_shifted);
+                        ir_build_store(builder, new_mem, lval);
+                    } else {
+                        ir_build_store(builder, val, lval);
+                    }
                 }
                 return val;
             }
@@ -1170,7 +1262,28 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                 if (expr->expr_type && (expr->expr_type->kind == TY_FORMA || expr->expr_type->kind == TY_ACIES || expr->expr_type->kind == TY_COHORS || expr->expr_type->kind == TY_ACTIO)) {
                     return lval;
                 }
-                return ir_build_load(builder, lval);
+                SirValue* val = ir_build_load(builder, lval);
+                
+                if (expr->kind == AST_MEMBER_EXPR) {
+                    ScoriaType* obj_type = expr->as.member_expr.object->expr_type;
+                    if (obj_type && obj_type->kind == TY_VIA) obj_type = obj_type->as.inner;
+                    int bit_offset = 0, bit_size = 0;
+                    if (type_get_field_layout(obj_type, expr->as.member_expr.property, NULL, &bit_offset, &bit_size) && bit_size > 0) {
+                        if (bit_offset > 0) {
+                            val = ir_build_binary(builder, SIR_SHR, val, ir_const_int(builder, expr->expr_type, bit_offset));
+                        }
+                        uint64_t mask_val = (bit_size == 64) ? ~0ULL : ((1ULL << bit_size) - 1);
+                        val = ir_build_binary(builder, SIR_AND, val, ir_const_int(builder, expr->expr_type, mask_val));
+                        if (type_is_signed(expr->expr_type)) {
+                            int shift_amt = type_get_size(expr->expr_type) * 8 - bit_size;
+                            if (shift_amt > 0) {
+                                val = ir_build_binary(builder, SIR_SHL, val, ir_const_int(builder, expr->expr_type, shift_amt));
+                                val = ir_build_binary(builder, SIR_SHR, val, ir_const_int(builder, expr->expr_type, shift_amt));
+                            }
+                        }
+                    }
+                }
+                return val;
             }
             return NULL;
         }

@@ -116,6 +116,7 @@ static TokenKind identifier_type(Lexer* lexer) {
     if (len == 3 && memcmp(lexer->start, "prg", 3) == 0) return TK_KW_PERGE;
     if (len == 3 && memcmp(lexer->start, "mor", 3) == 0) return TK_KW_MORERE;
     if (len == 3 && memcmp(lexer->start, "mgn", 3) == 0) return TK_KW_MAGNITUDO;
+    if (len == 3 && memcmp(lexer->start, "mic", 3) == 0) return TK_KW_MICA;
     if (len == 3 && memcmp(lexer->start, "csl", 3) == 0) return TK_KW_CONSULE;
     if (len == 3 && memcmp(lexer->start, "xcp", 3) == 0) return TK_KW_EXCERPE;
     if (len == 3 && memcmp(lexer->start, "alt", 3) == 0) return TK_KW_ALITER;
@@ -175,6 +176,7 @@ static TokenKind identifier_type(Lexer* lexer) {
     case 'm':
         if (len == 4) {
             if (memcmp(lexer->start + 1, "uta", 3) == 0) return TK_KW_MUTA;
+            if (memcmp(lexer->start + 1, "ica", 3) == 0) return TK_KW_MICA;
         }
         if (len == 6) {
             if (memcmp(lexer->start + 1, "edius", 5) == 0) return TK_TY_I32;
@@ -323,7 +325,7 @@ Token lexer_next_token(Lexer* lexer) {
 
     char c = advance(lexer);
 
-    if (isalpha(c)) return identifier(lexer);
+    if (isalpha(c) || c == '_') return identifier(lexer);
     if (isdigit(c)) return number(lexer);
 
     // 深层推导操作符探测网 (Lookahead 最深 3 层)

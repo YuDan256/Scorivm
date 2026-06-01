@@ -825,6 +825,11 @@ static AstNode* var_declaration(Parser* parser, bool is_const) {
         type = parse_type(parser);
     }
 
+    AstNode* bit_size = NULL;
+    if (match(parser, TK_KW_MICA)) {
+        bit_size = expression(parser);
+    }
+
     AstNode* initializer = NULL;
     if (match(parser, TK_ASSIGN)) {
         initializer = expression(parser);
@@ -843,6 +848,7 @@ static AstNode* var_declaration(Parser* parser, bool is_const) {
     node->as.var_decl.type = type;
     node->as.var_decl.initializer = initializer;
     node->as.var_decl.is_editus = is_edita;
+    node->as.var_decl.bit_size = bit_size;
     return node;
 }
 

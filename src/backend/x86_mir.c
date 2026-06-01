@@ -435,9 +435,12 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
                         else if (inst->opcode == SIR_OR) opc = X86_INST_OR;
                         else if (inst->opcode == SIR_XOR) opc = X86_INST_XOR;
                         
+                        int64_t imm = inst->operands[1]->kind == SIR_VAL_CONST_INT ? inst->operands[1]->as.int_val : 0;
+                        if (size == 4 && inst->operands[1]->kind == SIR_VAL_CONST_INT) imm = (int32_t)imm;
+                        
                         if (inst->operands[1]->kind == SIR_VAL_CONST_INT && 
-                            inst->operands[1]->as.int_val >= -2147483648LL && inst->operands[1]->as.int_val <= 2147483647LL) {
-                            emit_inst2(xblock, opc, op_reg(work_reg, size), op_imm(inst->operands[1]->as.int_val, size));
+                            imm >= -2147483648LL && imm <= 2147483647LL) {
+                            emit_inst2(xblock, opc, op_reg(work_reg, size), op_imm(imm, size));
                         } else {
                             X86Reg right_scratch = (work_reg == X86_REG_RCX) ? X86_REG_RDX : X86_REG_RCX;
                             X86Reg right = load_operand_mir(xblock, &allocator, inst->operands[1], right_scratch, xfunc->frame_size);
@@ -557,9 +560,12 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
                         
                         X86Reg left = load_operand_mir(xblock, &allocator, inst->operands[0], left_scratch, xfunc->frame_size);
                         
+                        int64_t imm = inst->operands[1]->kind == SIR_VAL_CONST_INT ? inst->operands[1]->as.int_val : 0;
+                        if (size == 4 && inst->operands[1]->kind == SIR_VAL_CONST_INT) imm = (int32_t)imm;
+                        
                         if (inst->operands[1]->kind == SIR_VAL_CONST_INT && 
-                            inst->operands[1]->as.int_val >= -2147483648LL && inst->operands[1]->as.int_val <= 2147483647LL) {
-                            emit_inst2(xblock, X86_INST_CMP, op_reg(left, size), op_imm(inst->operands[1]->as.int_val, size));
+                            imm >= -2147483648LL && imm <= 2147483647LL) {
+                            emit_inst2(xblock, X86_INST_CMP, op_reg(left, size), op_imm(imm, size));
                         } else {
                             X86Reg right_scratch = (left == X86_REG_RCX) ? X86_REG_RDX : X86_REG_RCX;
                             X86Reg right = load_operand_mir(xblock, &allocator, inst->operands[1], right_scratch, xfunc->frame_size);
@@ -915,9 +921,10 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
                         SirBlock* def_block = inst->operands[1]->as.block;
 
                         for (int i = 0; i < case_count; i++) {
+                            int64_t imm = inst->operands[2 + i * 2]->kind == SIR_VAL_CONST_INT ? inst->operands[2 + i * 2]->as.int_val : 0;
                             if (inst->operands[2 + i * 2]->kind == SIR_VAL_CONST_INT && 
-                                inst->operands[2 + i * 2]->as.int_val >= -2147483648LL && inst->operands[2 + i * 2]->as.int_val <= 2147483647LL) {
-                                emit_inst2(xblock, X86_INST_CMP, op_reg(X86_REG_RAX, 8), op_imm(inst->operands[2 + i * 2]->as.int_val, 8));
+                                imm >= -2147483648LL && imm <= 2147483647LL) {
+                                emit_inst2(xblock, X86_INST_CMP, op_reg(X86_REG_RAX, 8), op_imm(imm, 8));
                             } else {
                                 X86Reg val_reg = load_operand_mir(xblock, &allocator, inst->operands[2 + i * 2], X86_REG_RCX, xfunc->frame_size);
                                 emit_inst2(xblock, X86_INST_CMP, op_reg(X86_REG_RAX, 8), op_reg(val_reg, 8));
