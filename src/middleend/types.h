@@ -104,6 +104,12 @@ bool type_equals(ScoriaType* a, ScoriaType* b);
 // 获取类型在内存中的实际字节大小
 int type_get_size(ScoriaType* type);
 
+// 获取类型在内存中的对齐要求 (字节数，必定是 2 的幂)
+int type_get_align(ScoriaType* type);
+
+// 获取结构体/联合体中指定字段的内存偏移量 (字节)
+int type_get_field_offset(ScoriaType* type, Token field_name);
+
 // 判断类型是否有符号/无符号
 bool type_is_signed(ScoriaType* type);
 bool type_is_unsigned(ScoriaType* type);

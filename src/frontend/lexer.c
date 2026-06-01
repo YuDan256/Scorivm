@@ -115,6 +115,7 @@ static TokenKind identifier_type(Lexer* lexer) {
     if (len == 3 && memcmp(lexer->start, "rmp", 3) == 0) return TK_KW_RUMPE;
     if (len == 3 && memcmp(lexer->start, "prg", 3) == 0) return TK_KW_PERGE;
     if (len == 3 && memcmp(lexer->start, "mor", 3) == 0) return TK_KW_MORERE;
+    if (len == 3 && memcmp(lexer->start, "mgn", 3) == 0) return TK_KW_MAGNITUDO;
     if (len == 3 && memcmp(lexer->start, "csl", 3) == 0) return TK_KW_CONSULE;
     if (len == 3 && memcmp(lexer->start, "xcp", 3) == 0) return TK_KW_EXCERPE;
     if (len == 3 && memcmp(lexer->start, "alt", 3) == 0) return TK_KW_ALITER;
@@ -180,6 +181,9 @@ static TokenKind identifier_type(Lexer* lexer) {
             if (memcmp(lexer->start + 1, "orere", 5) == 0) return TK_KW_MORERE;
         }
         if (len == 7) return check_keyword(lexer, 1, 6, "inimus", TK_TY_I8);
+        if (len == 9) {
+            if (memcmp(lexer->start + 1, "agnitudo", 8) == 0) return TK_KW_MAGNITUDO;
+        }
         break;
     case 'n':
         if (len == 4) return check_keyword(lexer, 1, 3, "eca", TK_KW_NECA);

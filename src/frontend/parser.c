@@ -222,6 +222,31 @@ static AstNode* primary(Parser* parser) {
         node->as.neca_expr.pointer = pointer;
         return node;
     }
+    if (match(parser, TK_KW_MAGNITUDO)) {
+        Token keyword = parser->previous;
+        consume(parser, TK_LPAREN, "Post 'magnitudo' '(' exspectatur.");
+        
+        AstNode* target_type = NULL;
+        AstNode* target_expr = NULL;
+        
+        TokenKind k = parser->current.kind;
+        if (k == TK_TY_VIA || k == TK_TY_COHORS || k == TK_TY_ACIES ||
+            k == TK_TY_I8 || k == TK_TY_I16 || k == TK_TY_I32 || k == TK_TY_I64 ||
+            k == TK_TY_P8 || k == TK_TY_P16 || k == TK_TY_P32 || k == TK_TY_P64 ||
+            k == TK_TY_F32 || k == TK_TY_F64 ||
+            k == TK_TY_LOGICA || k == TK_TY_LITTERA || k == TK_TY_TEXTUS ||
+            k == TK_KW_NIHIL) {
+            target_type = parse_type(parser);
+        } else {
+            target_expr = expression(parser);
+        }
+        
+        consume(parser, TK_RPAREN, "Post argumentum 'magnitudo' ')' exspectatur.");
+        AstNode* node = ast_create_node(&parser->arena, AST_SIZEOF_EXPR, keyword);
+        node->as.sizeof_expr.target_type = target_type;
+        node->as.sizeof_expr.target_expr = target_expr;
+        return node;
+    }
     if (match(parser, TK_KW_SCRIBE)) {
         Token keyword = parser->previous;
         consume(parser, TK_LPAREN, "Post 'scribe' '(' exspectatur.");

@@ -44,6 +44,7 @@ typedef enum {
     AST_RECEDE_EXPR,
     AST_CREA_EXPR,
     AST_NECA_EXPR,
+    AST_SIZEOF_EXPR,
     AST_ASSIGN_EXPR,
     AST_GOTO_STMT,
     AST_LABEL_STMT,
@@ -228,6 +229,11 @@ struct AstNode {
         struct {
             AstNode* pointer;
         } neca_expr;
+
+        struct {
+            AstNode* target_type;
+            AstNode* target_expr;
+        } sizeof_expr;
 
         struct {
             Token op;

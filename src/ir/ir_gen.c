@@ -54,29 +54,15 @@ static bool evaluate_const_expr(IrBuilder* builder, AstNode* expr, uint8_t* buff
             int byte_offset = 0;
             ScoriaType* field_type = NULL;
             
-            if (struct_type->kind == TY_FORMA) {
-                for (int j = 0; j < struct_type->as.struct_type.field_count; j++) {
-                    StructField f = struct_type->as.struct_type.fields[j];
-                    int f_size = type_get_size(f.type);
-                    int f_align = struct_type->as.struct_type.is_densa ? 1 : (f_size > 8 ? 8 : f_size);
-                    
-                    if (!struct_type->as.struct_type.is_densa) {
-                        byte_offset = (byte_offset + f_align - 1) & ~(f_align - 1);
-                    }
-                    
-                    if (f.name.length == field_name.length && memcmp(f.name.start, field_name.start, f.name.length) == 0) {
-                        field_type = f.type;
-                        break;
-                    }
-                    byte_offset += f_size;
-                }
-            } else if (struct_type->kind == TY_UNIO) {
-                byte_offset = 0;
-                for (int j = 0; j < struct_type->as.struct_type.field_count; j++) {
-                    StructField f = struct_type->as.struct_type.fields[j];
-                    if (f.name.length == field_name.length && memcmp(f.name.start, field_name.start, f.name.length) == 0) {
-                        field_type = f.type;
-                        break;
+            if (struct_type->kind == TY_FORMA || struct_type->kind == TY_UNIO) {
+                byte_offset = type_get_field_offset(struct_type, field_name);
+                if (byte_offset >= 0) {
+                    for (int j = 0; j < struct_type->as.struct_type.field_count; j++) {
+                        StructField f = struct_type->as.struct_type.fields[j];
+                        if (f.name.length == field_name.length && memcmp(f.name.start, field_name.start, f.name.length) == 0) {
+                            field_type = f.type;
+                            break;
+                        }
                     }
                 }
             }
@@ -343,19 +329,9 @@ static void gen_scribe_value(IrBuilder* builder, SirValue* callee, ScoriaType* t
         snprintf(buf, sizeof(buf), "%.*s { ", type->as.struct_type.name.length, type->as.struct_type.name.start);
         gen_scribe_call(builder, callee, gen_string_slice(builder, buf, (int)strlen(buf)));
         
-        int byte_offset = 0;
         for (int i = 0; i < type->as.struct_type.field_count; i++) {
             StructField field = type->as.struct_type.fields[i];
-            int field_size = type_get_size(field.type);
-            int field_align = type->as.struct_type.is_densa ? 1 : (field_size > 8 ? 8 : field_size);
-            
-            if (type->kind == TY_FORMA) {
-                if (!type->as.struct_type.is_densa) {
-                    byte_offset = (byte_offset + field_align - 1) & ~(field_align - 1);
-                }
-            } else {
-                byte_offset = 0; // 联合体字段偏移始终为 0
-            }
+            int byte_offset = type_get_field_offset(type, field.name);
             
             snprintf(buf, sizeof(buf), "%.*s: ", field.name.length, field.name.start);
             gen_scribe_call(builder, callee, gen_string_slice(builder, buf, (int)strlen(buf)));
@@ -375,10 +351,6 @@ static void gen_scribe_value(IrBuilder* builder, SirValue* callee, ScoriaType* t
             
             if (i < type->as.struct_type.field_count - 1) {
                 gen_scribe_call(builder, callee, gen_string_slice(builder, ", ", 2));
-            }
-            
-            if (type->kind == TY_FORMA) {
-                byte_offset += field_size;
             }
         }
         
@@ -593,24 +565,8 @@ static SirValue* gen_lvalue(IrBuilder* builder, AstNode* expr) {
                 } else if (expr->as.member_expr.property.length == 5 && strncmp(expr->as.member_expr.property.start, "caput", 5) == 0) {
                     byte_offset = 0;
                 }
-            } else if (obj_type && obj_type->kind == TY_FORMA) {
-                for (int i = 0; i < obj_type->as.struct_type.field_count; i++) {
-                    StructField field = obj_type->as.struct_type.fields[i];
-                    int field_size = type_get_size(field.type);
-                    int field_align = obj_type->as.struct_type.is_densa ? 1 : (field_size > 8 ? 8 : field_size);
-                    
-                    if (!obj_type->as.struct_type.is_densa) {
-                        byte_offset = (byte_offset + field_align - 1) & ~(field_align - 1);
-                    }
-                    
-                    if (field.name.length == expr->as.member_expr.property.length &&
-                        memcmp(field.name.start, expr->as.member_expr.property.start, field.name.length) == 0) {
-                        break;
-                    }
-                    byte_offset += field_size;
-                }
-            } else if (obj_type && obj_type->kind == TY_UNIO) {
-                byte_offset = 0; // 联合体所有字段偏移均为 0
+            } else if (obj_type && (obj_type->kind == TY_FORMA || obj_type->kind == TY_UNIO)) {
+                byte_offset = type_get_field_offset(obj_type, expr->as.member_expr.property);
             }
             SirValue* index_val = ir_const_int(builder, type_get_basic(TY_I32), byte_offset);
             ScoriaType* res_type = expr->expr_type ? type_get_via(expr->expr_type) : type_get_via(type_get_basic(TY_UNKNOWN));
@@ -800,29 +756,15 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                         byte_offset = 8;
                         field_type = type_get_basic(TY_I64);
                     }
-                } else if (struct_type->kind == TY_FORMA) {
-                    for (int j = 0; j < struct_type->as.struct_type.field_count; j++) {
-                        StructField f = struct_type->as.struct_type.fields[j];
-                        int f_size = type_get_size(f.type);
-                        int f_align = struct_type->as.struct_type.is_densa ? 1 : (f_size > 8 ? 8 : f_size);
-                        
-                        if (!struct_type->as.struct_type.is_densa) {
-                            byte_offset = (byte_offset + f_align - 1) & ~(f_align - 1);
-                        }
-                        
-                        if (f.name.length == field_name.length && memcmp(f.name.start, field_name.start, f.name.length) == 0) {
-                            field_type = f.type;
-                            break;
-                        }
-                        byte_offset += f_size;
-                    }
-                } else if (struct_type->kind == TY_UNIO) {
-                    byte_offset = 0;
-                    for (int j = 0; j < struct_type->as.struct_type.field_count; j++) {
-                        StructField f = struct_type->as.struct_type.fields[j];
-                        if (f.name.length == field_name.length && memcmp(f.name.start, field_name.start, f.name.length) == 0) {
-                            field_type = f.type;
-                            break;
+                } else if (struct_type->kind == TY_FORMA || struct_type->kind == TY_UNIO) {
+                    byte_offset = type_get_field_offset(struct_type, field_name);
+                    if (byte_offset >= 0) {
+                        for (int j = 0; j < struct_type->as.struct_type.field_count; j++) {
+                            StructField f = struct_type->as.struct_type.fields[j];
+                            if (f.name.length == field_name.length && memcmp(f.name.start, field_name.start, f.name.length) == 0) {
+                                field_type = f.type;
+                                break;
+                            }
                         }
                     }
                 }

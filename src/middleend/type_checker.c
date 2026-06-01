@@ -571,6 +571,31 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
             break;
         }
 
+        case AST_SIZEOF_EXPR: {
+            ScoriaType* target_type = NULL;
+            if (expr->as.sizeof_expr.target_type) {
+                target_type = resolve_type_node(checker, expr->as.sizeof_expr.target_type);
+            } else if (expr->as.sizeof_expr.target_expr) {
+                // 仅作类型推导和语义检查，不产生运行时副作用
+                target_type = check_expression(checker, expr->as.sizeof_expr.target_expr, NULL);
+            }
+
+            if (!target_type || target_type->kind == TY_UNKNOWN) {
+                type_error(checker, expr->token, "Typus pro 'magnitudo' determinari non potest.");
+                type = type_get_basic(TY_I64);
+            } else {
+                int size = type_get_size(target_type);
+                
+                // 魔法：直接将 AST_SIZEOF_EXPR 折叠为 AST_LITERAL_EXPR (i64 常量)
+                expr->kind = AST_LITERAL_EXPR;
+                expr->token.kind = TK_INT_CONST;
+                expr->as.literal_expr.int_val = (int64_t)size;
+                
+                type = type_get_basic(TY_I64);
+            }
+            break;
+        }
+
         case AST_INDEX_EXPR: {
             ScoriaType* target_type = check_expression(checker, expr->as.index_expr.target, NULL);
             ScoriaType* index_type = check_expression(checker, expr->as.index_expr.index, type_get_basic(TY_I64));

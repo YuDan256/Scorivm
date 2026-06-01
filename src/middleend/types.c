@@ -190,6 +190,62 @@ void type_enum_add_variant(ScoriaType* enum_type, Token name, int64_t value) {
     enum_type->as.enum_type.variant_count++;
 }
 
+int type_get_align(ScoriaType* type) {
+    if (!type) return 1;
+    switch (type->kind) {
+        case TY_NIHIL: case TY_UNKNOWN: return 1;
+        case TY_NULLUS: return 8;
+        case TY_I8: case TY_P8: case TY_LITTERA: case TY_LOGICA: return 1;
+        case TY_I16: case TY_P16: return 2;
+        case TY_I32: case TY_P32: case TY_F32: case TY_ENUM: return 4;
+        case TY_I64: case TY_P64: case TY_F64: case TY_VIA: case TY_ACTIO: return 8;
+        case TY_COHORS: return 8;
+        case TY_ACIES: return type_get_align(type->as.array.inner);
+        case TY_FORMA: {
+            if (type->as.struct_type.is_densa) return 1;
+            int max_align = 1;
+            for (int i = 0; i < type->as.struct_type.field_count; i++) {
+                int a = type_get_align(type->as.struct_type.fields[i].type);
+                if (a > max_align) max_align = a;
+            }
+            return max_align;
+        }
+        case TY_UNIO: {
+            int max_align = 1;
+            for (int i = 0; i < type->as.struct_type.field_count; i++) {
+                int a = type_get_align(type->as.struct_type.fields[i].type);
+                if (a > max_align) max_align = a;
+            }
+            return max_align;
+        }
+        default: return 8;
+    }
+}
+
+int type_get_field_offset(ScoriaType* type, Token field_name) {
+    if (!type || (type->kind != TY_FORMA && type->kind != TY_UNIO)) return -1;
+    if (type->kind == TY_UNIO) return 0; // 联合体的所有字段偏移量均为 0
+
+    int offset = 0;
+    for (int i = 0; i < type->as.struct_type.field_count; i++) {
+        StructField field = type->as.struct_type.fields[i];
+        
+        // 如果不是 densa，则需要加上对齐填充
+        if (!type->as.struct_type.is_densa) {
+            int field_align = type_get_align(field.type);
+            offset = (offset + field_align - 1) & ~(field_align - 1);
+        }
+
+        if (field.name.length == field_name.length &&
+            memcmp(field.name.start, field_name.start, field.name.length) == 0) {
+            return offset;
+        }
+
+        offset += type_get_size(field.type);
+    }
+    return -1;
+}
+
 int type_get_size(ScoriaType* type) {
     if (!type) return 0;
     switch (type->kind) {
@@ -206,7 +262,7 @@ int type_get_size(ScoriaType* type) {
             int max_align = 1;
             for (int i = 0; i < type->as.struct_type.field_count; i++) {
                 int field_size = type_get_size(type->as.struct_type.fields[i].type);
-                int field_align = type->as.struct_type.is_densa ? 1 : (field_size > 8 ? 8 : field_size);
+                int field_align = type->as.struct_type.is_densa ? 1 : type_get_align(type->as.struct_type.fields[i].type);
                 if (field_align > max_align) max_align = field_align;
                 if (!type->as.struct_type.is_densa) {
                     size = (size + field_align - 1) & ~(field_align - 1);
@@ -223,7 +279,7 @@ int type_get_size(ScoriaType* type) {
             int max_align = 1;
             for (int i = 0; i < type->as.struct_type.field_count; i++) {
                 int field_size = type_get_size(type->as.struct_type.fields[i].type);
-                int field_align = field_size > 8 ? 8 : field_size;
+                int field_align = type_get_align(type->as.struct_type.fields[i].type);
                 if (field_align > max_align) max_align = field_align;
                 if (field_size > max_size) max_size = field_size;
             }
