@@ -344,16 +344,17 @@ static void gen_scribe_call(IrBuilder* builder, SirValue* callee, SirValue* arg)
 
 static void gen_scribe_value(IrBuilder* builder, SirValue* callee, ScoriaType* type, SirValue* ptr) {
     if (type->kind == TY_FORMA || type->kind == TY_UNIO) {
-        char buf[256];
-        snprintf(buf, sizeof(buf), "%.*s { ", type->as.struct_type.name.length, type->as.struct_type.name.start);
-        gen_scribe_call(builder, callee, gen_string_slice(builder, buf, (int)strlen(buf)));
+        char* struct_name_buf = (char*)arena_alloc(&builder->arena, type->as.struct_type.name.length + 5);
+        snprintf(struct_name_buf, type->as.struct_type.name.length + 5, "%.*s { ", type->as.struct_type.name.length, type->as.struct_type.name.start);
+        gen_scribe_call(builder, callee, gen_string_slice(builder, struct_name_buf, (int)strlen(struct_name_buf)));
         
         for (int i = 0; i < type->as.struct_type.field_count; i++) {
             StructField field = type->as.struct_type.fields[i];
             int byte_offset = type_get_field_offset(type, field.name);
             
-            snprintf(buf, sizeof(buf), "%.*s: ", field.name.length, field.name.start);
-            gen_scribe_call(builder, callee, gen_string_slice(builder, buf, (int)strlen(buf)));
+            char* field_name_buf = (char*)arena_alloc(&builder->arena, field.name.length + 3);
+            snprintf(field_name_buf, field.name.length + 3, "%.*s: ", field.name.length, field.name.start);
+            gen_scribe_call(builder, callee, gen_string_slice(builder, field_name_buf, (int)strlen(field_name_buf)));
             
             SirValue* index_val = ir_const_int(builder, type_get_basic(TY_I32), byte_offset);
             SirValue* field_ptr = ir_build_gep(builder, ptr, index_val, 1, type_get_via(field.type));
@@ -775,6 +776,29 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
             if (!struct_type) return NULL;
             int struct_size = type_get_size(struct_type);
             SirValue* struct_ptr = ir_build_alloca(builder, struct_type, struct_size);
+            
+            // 清零结构体内存，防止位域或未初始化字段包含垃圾数据
+            int offset = 0;
+            while (offset < struct_size) {
+                int chunk = struct_size - offset;
+                if (chunk >= 8) {
+                    SirValue* ptr = ir_build_gep(builder, struct_ptr, ir_const_int(builder, type_get_basic(TY_I32), offset), 1, type_get_via(type_get_basic(TY_I64)));
+                    ir_build_store(builder, ir_const_int(builder, type_get_basic(TY_I64), 0), ptr);
+                    offset += 8;
+                } else if (chunk >= 4) {
+                    SirValue* ptr = ir_build_gep(builder, struct_ptr, ir_const_int(builder, type_get_basic(TY_I32), offset), 1, type_get_via(type_get_basic(TY_I32)));
+                    ir_build_store(builder, ir_const_int(builder, type_get_basic(TY_I32), 0), ptr);
+                    offset += 4;
+                } else if (chunk >= 2) {
+                    SirValue* ptr = ir_build_gep(builder, struct_ptr, ir_const_int(builder, type_get_basic(TY_I32), offset), 1, type_get_via(type_get_basic(TY_I16)));
+                    ir_build_store(builder, ir_const_int(builder, type_get_basic(TY_I16), 0), ptr);
+                    offset += 2;
+                } else {
+                    SirValue* ptr = ir_build_gep(builder, struct_ptr, ir_const_int(builder, type_get_basic(TY_I32), offset), 1, type_get_via(type_get_basic(TY_I8)));
+                    ir_build_store(builder, ir_const_int(builder, type_get_basic(TY_I8), 0), ptr);
+                    offset += 1;
+                }
+            }
             
             for (int i = 0; i < expr->as.struct_literal.field_count; i++) {
                 Token field_name = expr->as.struct_literal.field_names[i];
@@ -1766,9 +1790,21 @@ void ir_gen_generate(IrBuilder* builder, AstNode** programs, int count, int opt_
                         
                         SirFunction* prev_func = builder->current_func;
                         SirBlock* prev_block = builder->current_block;
+                        uint32_t prev_vreg = builder->next_vreg;
                         
                         builder->current_func = init_func;
                         ir_builder_set_insert_point(builder, current_init_block);
+                        
+                        uint32_t max_vreg = 0;
+                        for (SirBlock* b = init_func->first_block; b; b = b->next) {
+                            for (SirInst* inst = b->first_inst; inst; inst = inst->next) {
+                                if (inst->dest && inst->dest->kind == SIR_VAL_VREG && inst->dest->as.vreg > max_vreg) max_vreg = inst->dest->as.vreg;
+                                for (int op = 0; op < inst->num_operands; op++) {
+                                    if (inst->operands[op] && inst->operands[op]->kind == SIR_VAL_VREG && inst->operands[op]->as.vreg > max_vreg) max_vreg = inst->operands[op]->as.vreg;
+                                }
+                            }
+                        }
+                        builder->next_vreg = max_vreg + 1;
                         
                         SirValue* init_val = gen_expression(builder, initializer);
                         if (sym->type->kind == TY_FORMA || sym->type->kind == TY_UNIO || sym->type->kind == TY_ACIES || sym->type->kind == TY_COHORS) {
@@ -1781,6 +1817,7 @@ void ir_gen_generate(IrBuilder* builder, AstNode** programs, int count, int opt_
                         
                         builder->current_func = prev_func;
                         ir_builder_set_insert_point(builder, prev_block);
+                        builder->next_vreg = prev_vreg;
                     }
                 }
             } else if (decl->kind == AST_FUNC_DECL) {
@@ -1797,6 +1834,7 @@ void ir_gen_generate(IrBuilder* builder, AstNode** programs, int count, int opt_
                 if (!func) continue;
 
                 builder->current_func = func;
+                builder->next_vreg = 1;
                 
                 // 2. 创建入口基本块 (Entry Block)
                 SirBlock* entry_block = ir_builder_create_block(builder, "ingressus"); // 拉丁语 entry

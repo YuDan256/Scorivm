@@ -300,16 +300,17 @@ void reg_alloc_build_and_color(RegAllocator* allocator, SirFunction* func, int o
                     break;
                 }
             }
-        }
-        // 如果没找到，或者跨越了调用，尝试 Callee-Saved (0-6)
-        if (color == -1) {
-            for (int c = 0; c < 7; c++) {
-                if (!used_colors[c]) {
-                    color = c;
-                    break;
+            // 如果没找到，尝试 Callee-Saved (0-6)
+            if (color == -1) {
+                for (int c = 0; c < 7; c++) {
+                    if (!used_colors[c]) {
+                        color = c;
+                        break;
+                    }
                 }
             }
         }
+        // 如果 crosses_call[node] 为 true，color 保持 -1，强制 Spill 到栈上！
         allocator->vreg_colors[node] = color; // 如果为 -1，则表示 Spilled
         if (color != -1) {
             allocator->used_callee_saved[color] = true;

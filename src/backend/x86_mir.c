@@ -1094,7 +1094,8 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
                                 emit_inst1(xblock, X86_INST_CALL, op_label(inst->operands[0]->as.global_name));
                             }
                         } else {
-                            X86Reg callee_reg = load_operand_mir(xblock, &allocator, inst->operands[0], X86_REG_R10, xfunc->frame_size);
+                            // 使用 RAX 作为 callee_reg，防止被传参寄存器 (RCX, RDX, R8-R11) 覆盖
+                            X86Reg callee_reg = load_operand_mir(xblock, &allocator, inst->operands[0], X86_REG_RAX, xfunc->frame_size);
                             emit_inst1(xblock, X86_INST_CALL, op_reg(callee_reg, 8));
                         }
                         

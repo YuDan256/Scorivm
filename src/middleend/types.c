@@ -270,8 +270,13 @@ bool type_get_field_layout(ScoriaType* type, Token field_name, int* out_byte_off
 
         if (field.name.length == field_name.length &&
             memcmp(field.name.start, field_name.start, field.name.length) == 0) {
-            if (out_byte_offset) *out_byte_offset = byte_offset + (bit_offset / 8);
-            if (out_bit_offset) *out_bit_offset = bit_offset % 8;
+            if (type->as.struct_type.is_densa) {
+                if (out_byte_offset) *out_byte_offset = byte_offset + (bit_offset / 8);
+                if (out_bit_offset) *out_bit_offset = bit_offset % 8;
+            } else {
+                if (out_byte_offset) *out_byte_offset = byte_offset;
+                if (out_bit_offset) *out_bit_offset = bit_offset;
+            }
             if (out_bit_size) *out_bit_size = field.bit_size;
             return true;
         }

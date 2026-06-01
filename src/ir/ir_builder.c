@@ -727,14 +727,7 @@ static bool try_evaluate_pure_func(SirFunction* func, int64_t arg_val, int64_t* 
         }
     }
 
-    uint32_t max_vreg = 0;
-    for (SirBlock* b = func->first_block; b; b = b->next) {
-        for (SirInst* i = b->first_inst; i; i = i->next) {
-            if (i->dest && i->dest->kind == SIR_VAL_VREG) {
-                if (i->dest->as.vreg > max_vreg) max_vreg = i->dest->as.vreg;
-            }
-        }
-    }
+    uint32_t max_vreg = get_max_vreg(func);
 
     bool* vreg_valid = (bool*)calloc(max_vreg + 1, sizeof(bool));
     int64_t* vreg_vals = (int64_t*)calloc(max_vreg + 1, sizeof(int64_t));
@@ -1843,6 +1836,24 @@ static void build_lege_float(IrBuilder* builder) {
     ir_build_ret(builder, ir_const_int(builder, type_get_basic(TY_I32), 0));
 }
 
+static uint32_t get_max_vreg(SirFunction* func) {
+    uint32_t max_vreg = 0;
+    if (!func) return 0;
+    for (SirBlock* block = func->first_block; block; block = block->next) {
+        for (SirInst* inst = block->first_inst; inst; inst = inst->next) {
+            if (inst->dest && inst->dest->kind == SIR_VAL_VREG) {
+                if (inst->dest->as.vreg > max_vreg) max_vreg = inst->dest->as.vreg;
+            }
+            for (int i = 0; i < inst->num_operands; i++) {
+                if (inst->operands[i] && inst->operands[i]->kind == SIR_VAL_VREG) {
+                    if (inst->operands[i]->as.vreg > max_vreg) max_vreg = inst->operands[i]->as.vreg;
+                }
+            }
+        }
+    }
+    return max_vreg;
+}
+
 static void ir_lower_builtins(IrBuilder* builder) {
     bool uses_crea = false, uses_neca = false;
     bool uses_print_str = false, uses_print_int = false, uses_print_uint = false;
@@ -1926,6 +1937,7 @@ static void ir_lower_builtins(IrBuilder* builder) {
         if (strncmp(func->name, "__print_", 8) == 0) continue;
 
         builder->current_func = func;
+        builder->next_vreg = get_max_vreg(func) + 1;
         for (SirBlock* block = func->first_block; block; block = block->next) {
             SirInst* inst = block->first_inst;
             while (inst) {
@@ -2091,6 +2103,7 @@ void ir_optimize_module(IrBuilder* builder, int opt_level) {
             inline_changed = false;
             for (SirFunction* func = builder->module->first_func; func; func = func->next) {
                 builder->current_func = func;
+                builder->next_vreg = get_max_vreg(func) + 1;
                 for (SirBlock* block = func->first_block; block; block = block->next) {
                     for (SirInst* inst = block->first_inst; inst; inst = inst->next) {
                         if (inst->opcode == SIR_CALL && inst->operands[0]->kind == SIR_VAL_GLOBAL) {
@@ -2114,7 +2127,7 @@ void ir_optimize_module(IrBuilder* builder, int opt_level) {
                             }
                             
                             if (allowed_to_inline) {
-                                uint32_t callee_max_vreg = builder->next_vreg;
+                                uint32_t callee_max_vreg = get_max_vreg(callee);
                                 uint32_t callee_max_block = builder->next_block_id;
                                 
                                 SirValue** vreg_map = (SirValue**)calloc(callee_max_vreg + 1, sizeof(SirValue*));
@@ -2239,19 +2252,7 @@ void ir_optimize_module(IrBuilder* builder, int opt_level) {
 
     for (SirFunction* func = builder->module->first_func; func; func = func->next) {
         builder->current_func = func;
-        uint32_t max_vreg = 0;
-        for (SirBlock* block = func->first_block; block; block = block->next) {
-            for (SirInst* inst = block->first_inst; inst; inst = inst->next) {
-                if (inst->dest && inst->dest->kind == SIR_VAL_VREG) {
-                    if (inst->dest->as.vreg > max_vreg) max_vreg = inst->dest->as.vreg;
-                }
-                for (int i = 0; i < inst->num_operands; i++) {
-                    if (inst->operands[i] && inst->operands[i]->kind == SIR_VAL_VREG) {
-                        if (inst->operands[i]->as.vreg > max_vreg) max_vreg = inst->operands[i]->as.vreg;
-                    }
-                }
-            }
-        }
+        uint32_t max_vreg = get_max_vreg(func);
 
         bool changed;
         
@@ -2629,6 +2630,7 @@ void ir_optimize_module(IrBuilder* builder, int opt_level) {
                 int64_t res;
                 if (try_evaluate_pure_func(func, test_val, &res, 0)) {
                     builder->current_func = func;
+                    builder->next_vreg = get_max_vreg(func) + 1;
                     
                     SirBlock* old_entry = func->first_block;
                     SirBlock* new_entry = ir_builder_create_block(builder, "bce_entry");
@@ -2719,6 +2721,8 @@ void ir_optimize_module(IrBuilder* builder, int opt_level) {
         bool vm_changed = false;
         // 第二阶段 & 第三阶段：探针拦截与虚拟机执行
         for (SirFunction* func = builder->module->first_func; func; func = func->next) {
+            builder->current_func = func;
+            builder->next_vreg = get_max_vreg(func) + 1;
             for (SirBlock* block = func->first_block; block; block = block->next) {
                 for (SirInst* inst = block->first_inst; inst; inst = inst->next) {
                     if (inst->opcode == SIR_CALL && inst->operands[0]->kind == SIR_VAL_GLOBAL) {
@@ -2770,12 +2774,7 @@ void ir_optimize_module(IrBuilder* builder, int opt_level) {
         // 第五阶段：清理战场 (Local CSE & DCE for newly generated constants)
         if (vm_changed) {
             for (SirFunction* func = builder->module->first_func; func; func = func->next) {
-                uint32_t max_vreg = 0;
-                for (SirBlock* block = func->first_block; block; block = block->next) {
-                    for (SirInst* inst = block->first_inst; inst; inst = inst->next) {
-                        if (inst->dest && inst->dest->kind == SIR_VAL_VREG && inst->dest->as.vreg > max_vreg) max_vreg = inst->dest->as.vreg;
-                    }
-                }
+                uint32_t max_vreg = get_max_vreg(func);
                 
                 bool prop_changed;
                 do {
