@@ -273,7 +273,51 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
         xfunc->frame_size = stack_sub_size;
 
         // 3. 指令选择 (Instruction Selection)
-        X86Block* xblocks[1024] = {0}; // 简化：假设 block id < 1024
+        uint32_t local_max_block_id = 0;
+        for (SirBlock* sblock = sfunc->first_block; sblock; sblock = sblock->next) {
+            if (sblock->id > local_max_block_id) local_max_block_id = sblock->id;
+        }
+        
+        X86Block** xblocks = (X86Block**)calloc(local_max_block_id + 3, sizeof(X86Block*));
+        
+        if (sfunc->has_fast_path) {
+            X86Block* fp_entry = (X86Block*)calloc(1, sizeof(X86Block));
+            fp_entry->id = local_max_block_id + 1;
+            fp_entry->name = "fp_entry";
+            
+            X86Block* fp_ret = (X86Block*)calloc(1, sizeof(X86Block));
+            fp_ret->id = local_max_block_id + 2;
+            fp_ret->name = "fp_ret";
+            
+            xfunc->first_block = fp_entry;
+            fp_entry->next = fp_ret;
+            xfunc->last_block = fp_ret;
+            
+            int size = sfunc->fp_w ? 8 : 4;
+            emit_inst2(fp_entry, X86_INST_CMP, op_reg(X86_REG_RCX, size), op_imm(sfunc->fp_imm, size));
+            
+            X86Condition cond = X86_COND_NONE;
+            switch (sfunc->fp_jcc_pe) {
+                case 0x84: cond = X86_COND_E; break;
+                case 0x85: cond = X86_COND_NE; break;
+                case 0x8C: cond = X86_COND_L; break;
+                case 0x82: cond = X86_COND_B; break;
+                case 0x8E: cond = X86_COND_LE; break;
+                case 0x86: cond = X86_COND_BE; break;
+                case 0x8F: cond = X86_COND_G; break;
+                case 0x87: cond = X86_COND_A; break;
+                case 0x8D: cond = X86_COND_GE; break;
+                case 0x83: cond = X86_COND_AE; break;
+            }
+            X86Inst* jcc = emit_inst1(fp_entry, X86_INST_JCC, op_block(fp_ret->id));
+            jcc->cond = cond;
+            
+            emit_inst1(fp_entry, X86_INST_JMP, op_block(sfunc->first_block->id));
+            
+            emit_inst2(fp_ret, X86_INST_MOV, op_reg(X86_REG_RAX, size), op_reg(X86_REG_RCX, size));
+            emit_inst0(fp_ret, X86_INST_RET);
+        }
+
         for (SirBlock* sblock = sfunc->first_block; sblock; sblock = sblock->next) {
             X86Block* xblock = (X86Block*)calloc(1, sizeof(X86Block));
             xblock->id = sblock->id;
@@ -1093,6 +1137,7 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
             mir_peephole_optimize(xfunc);
         }
         
+        free(xblocks);
         free(alloca_offsets);
         reg_alloc_free(&allocator);
     }
