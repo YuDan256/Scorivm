@@ -25,7 +25,7 @@ actio edita princeps() -> medius {
     scribe("mode:       ", reg.mode, "\n");
     scribe("error_code: ", reg.error_code, "\n");
     
-    // 内存大小测试 (1 + 3 + 4 + 10 = 18 bits -> 向上取整为 3 bytes)
+    // 内存大小测试 (1 + 3 + 10 = 14 bits -> 向上取整为 2 bytes)
     scribe("Magnitudo:  ", magnitudo(StatusReg), " bytes\n");
     
     scribe("\n--- Testatio Standardis (Non-densa) ---\n");
