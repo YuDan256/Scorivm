@@ -98,7 +98,11 @@ static X86Reg load_operand_mir(X86Block* block, RegAllocator* alloc, SirValue* v
         return scratch;
     }
     if (val->kind == SIR_VAL_CONST_INT) {
-        emit_inst2(block, X86_INST_MOV, op_reg(scratch, 8), op_imm(val->as.int_val, 8));
+        if (val->as.int_val == 0) {
+            emit_inst2(block, X86_INST_XOR, op_reg(scratch, 8), op_reg(scratch, 8));
+        } else {
+            emit_inst2(block, X86_INST_MOV, op_reg(scratch, 8), op_imm(val->as.int_val, 8));
+        }
         return scratch;
     } else if (val->kind == SIR_VAL_CONST_FLOAT) {
         uint64_t bits = 0;
@@ -162,6 +166,30 @@ static void mir_peephole_optimize(X86Function* func) {
         X86Inst* prev = NULL;
         X86Inst* inst = block->first_inst;
         while (inst) {
+            // 消除冗余的 MOV reg, reg
+            if (inst->opcode == X86_INST_MOV && inst->ops[0].kind == X86_OP_REG && inst->ops[1].kind == X86_OP_REG && inst->ops[0].as.reg == inst->ops[1].as.reg) {
+                X86Inst* next = inst->next;
+                if (prev) prev->next = next;
+                else block->first_inst = next;
+                if (block->last_inst == inst) block->last_inst = prev;
+                free(inst);
+                inst = next;
+                continue;
+            }
+
+            // 消除跳转到下一个基本块的冗余 JMP
+            if (inst->opcode == X86_INST_JMP && inst->ops[0].kind == X86_OP_BLOCK) {
+                if (block->next && block->next->id == inst->ops[0].as.block_id) {
+                    X86Inst* next = inst->next;
+                    if (prev) prev->next = next;
+                    else block->first_inst = next;
+                    if (block->last_inst == inst) block->last_inst = prev;
+                    free(inst);
+                    inst = next;
+                    continue;
+                }
+            }
+
             // 模式: SETCC -> MOVZX -> TEST -> JCC NE (分支融合)
             // 将比较指令和跳转指令直接融合，消除中间的布尔值计算
             if (inst->opcode == X86_INST_SETCC) {
@@ -440,7 +468,24 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
                         
                         if (inst->operands[1]->kind == SIR_VAL_CONST_INT && 
                             imm >= -2147483648LL && imm <= 2147483647LL) {
-                            emit_inst2(xblock, opc, op_reg(work_reg, size), op_imm(imm, size));
+                            if (opc == X86_INST_ADD && imm == 1) {
+                                emit_inst1(xblock, X86_INST_INC, op_reg(work_reg, size));
+                            } else if (opc == X86_INST_ADD && imm == -1) {
+                                emit_inst1(xblock, X86_INST_DEC, op_reg(work_reg, size));
+                            } else if (opc == X86_INST_SUB && imm == 1) {
+                                emit_inst1(xblock, X86_INST_DEC, op_reg(work_reg, size));
+                            } else if (opc == X86_INST_SUB && imm == -1) {
+                                emit_inst1(xblock, X86_INST_INC, op_reg(work_reg, size));
+                            } else if ((opc == X86_INST_ADD || opc == X86_INST_SUB) && imm == 0) {
+                                // 消除加减 0 的无效操作
+                            } else if (opc == X86_INST_IMUL && imm > 0 && (imm & (imm - 1)) == 0) {
+                                int log2 = 0;
+                                uint64_t temp = imm;
+                                while (temp > 1) { log2++; temp >>= 1; }
+                                if (log2 > 0) emit_inst2(xblock, X86_INST_SHL, op_reg(work_reg, size), op_imm(log2, 1));
+                            } else {
+                                emit_inst2(xblock, opc, op_reg(work_reg, size), op_imm(imm, size));
+                            }
                         } else {
                             X86Reg right_scratch = (work_reg == X86_REG_RCX) ? X86_REG_RDX : X86_REG_RCX;
                             X86Reg right = load_operand_mir(xblock, &allocator, inst->operands[1], right_scratch, xfunc->frame_size);
@@ -592,16 +637,38 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
                         break;
                     }
                     case SIR_BR: {
-                        X86Reg cond = load_operand_mir(xblock, &allocator, inst->operands[0], X86_REG_RAX, xfunc->frame_size);
-                        emit_inst2(xblock, X86_INST_TEST, op_reg(cond, 4), op_reg(cond, 4));
-                        
-                        X86Inst* jcc = emit_inst1(xblock, X86_INST_JCC, op_block(inst->operands[1]->as.block->id));
-                        jcc->cond = X86_COND_NE;
-                        
-                        emit_inst1(xblock, X86_INST_JMP, op_block(inst->operands[2]->as.block->id));
+                        if (inst->operands[0]->kind == SIR_VAL_CONST_BOOL) {
+                            if (inst->operands[0]->as.bool_val) {
+                                emit_inst1(xblock, X86_INST_JMP, op_block(inst->operands[1]->as.block->id));
+                            } else {
+                                emit_inst1(xblock, X86_INST_JMP, op_block(inst->operands[2]->as.block->id));
+                            }
+                        } else {
+                            X86Reg cond = load_operand_mir(xblock, &allocator, inst->operands[0], X86_REG_RAX, xfunc->frame_size);
+                            emit_inst2(xblock, X86_INST_TEST, op_reg(cond, 4), op_reg(cond, 4));
+                            
+                            X86Inst* jcc = emit_inst1(xblock, X86_INST_JCC, op_block(inst->operands[1]->as.block->id));
+                            jcc->cond = X86_COND_NE;
+                            
+                            emit_inst1(xblock, X86_INST_JMP, op_block(inst->operands[2]->as.block->id));
+                        }
                         break;
                     }
                     case SIR_SELECT: {
+                        if (inst->operands[0]->kind == SIR_VAL_CONST_BOOL) {
+                            SirValue* chosen = inst->operands[0]->as.bool_val ? inst->operands[1] : inst->operands[2];
+                            int dest_reg = X86_REG_RAX;
+                            if (inst->dest && inst->dest->kind == SIR_VAL_VREG) {
+                                int c = reg_alloc_get_color(&allocator, inst->dest->as.vreg);
+                                if (c != -1) dest_reg = get_phys_reg(c);
+                            }
+                            int size = (inst->dest && inst->dest->type && type_get_size(inst->dest->type) <= 4) ? 4 : 8;
+                            X86Reg val = load_operand_mir(xblock, &allocator, chosen, dest_reg, xfunc->frame_size);
+                            if (val != dest_reg) emit_inst2(xblock, X86_INST_MOV, op_reg(dest_reg, size), op_reg(val, size));
+                            store_result_mir(xblock, &allocator, inst->dest, dest_reg, xfunc->frame_size);
+                            break;
+                        }
+
                         int dest_reg = X86_REG_RAX;
                         if (inst->dest && inst->dest->kind == SIR_VAL_VREG) {
                             int c = reg_alloc_get_color(&allocator, inst->dest->as.vreg);
