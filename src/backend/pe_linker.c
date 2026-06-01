@@ -233,7 +233,19 @@ static void emit_x86_inst(PeCodeBuffer* cb, X86Inst* inst, LinkCtx* ctx) {
         }
         case X86_INST_SHL: case X86_INST_SHR: case X86_INST_SAR: {
             int ext = (opc == X86_INST_SHL) ? 4 : (opc == X86_INST_SHR ? 5 : 7);
-            emit_rex(cb, w, 0, 0, op0->as.reg > 7); emit8(cb, (uint8_t)(op0->size == 1 ? 0xD2 : 0xD3)); emit_modrm(cb, 3, ext, op0->as.reg & 7);
+            if (inst->num_ops == 2 && op1->kind == X86_OP_IMM) {
+                emit_rex(cb, w, 0, 0, op0->as.reg > 7);
+                if (op1->as.imm == 1) {
+                    emit8(cb, (uint8_t)(op0->size == 1 ? 0xD0 : 0xD1));
+                    emit_modrm(cb, 3, ext, op0->as.reg & 7);
+                } else {
+                    emit8(cb, (uint8_t)(op0->size == 1 ? 0xC0 : 0xC1));
+                    emit_modrm(cb, 3, ext, op0->as.reg & 7);
+                    emit8(cb, (uint8_t)op1->as.imm);
+                }
+            } else {
+                emit_rex(cb, w, 0, 0, op0->as.reg > 7); emit8(cb, (uint8_t)(op0->size == 1 ? 0xD2 : 0xD3)); emit_modrm(cb, 3, ext, op0->as.reg & 7);
+            }
             break;
         }
         case X86_INST_JMP: case X86_INST_JCC: {
