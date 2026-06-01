@@ -48,6 +48,19 @@ void emit_mov_reg_imm32(PeCodeBuffer* cb, int reg, int32_t imm) {
 
 void emit_mov_reg_imm64(PeCodeBuffer* cb, int reg, uint64_t imm) {
     if (imm == 0) { if (reg > 7) emit_rex(cb, 0, 1, 0, 1); emit8(cb, 0x31); emit_modrm(cb, 3, reg & 7, reg & 7); return; }
+    if ((imm >> 32) == 0) {
+        // 零扩展：使用 32 位 MOV，自动清零高 32 位 (5 bytes)
+        if (reg > 7) emit_rex(cb, 0, 0, 0, 1);
+        emit8(cb, (uint8_t)(0xB8 | (reg & 7))); emit32(cb, (uint32_t)imm);
+        return;
+    }
+    int64_t simm = (int64_t)imm;
+    if (simm >= -2147483648LL && simm < 0) {
+        // 符号扩展：使用 MOV r/m64, imm32 (7 bytes)
+        emit_rex(cb, 1, 0, 0, reg > 7); emit8(cb, 0xC7); emit_modrm(cb, 3, 0, reg & 7); emit32(cb, (uint32_t)imm);
+        return;
+    }
+    // 完整的 64 位立即数加载 (10 bytes)
     emit_rex(cb, 1, 0, 0, reg > 7); emit8(cb, (uint8_t)(0xB8 | (reg & 7)));
     emit32(cb, (uint32_t)(imm & 0xFFFFFFFF)); emit32(cb, (uint32_t)(imm >> 32));
 }

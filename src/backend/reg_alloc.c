@@ -292,25 +292,24 @@ void reg_alloc_build_and_color(RegAllocator* allocator, SirFunction* func, int o
         }
         
         int color = -1;
-        // 优先尝试 Caller-Saved (7-10) 如果它不跨越调用
         if (!allocator->crosses_call[node]) {
+            // 不跨越调用：优先使用 Caller-Saved (7-10)，避免不必要的 Callee-Saved 压栈开销
             for (int c = 7; c < NUM_PHYS_REGS; c++) {
-                if (!used_colors[c]) {
-                    color = c;
-                    break;
-                }
+                if (!used_colors[c]) { color = c; break; }
             }
-            // 如果没找到，尝试 Callee-Saved (0-6)
+            // 如果 Caller-Saved 耗尽，再尝试 Callee-Saved (0-6)
             if (color == -1) {
                 for (int c = 0; c < 7; c++) {
-                    if (!used_colors[c]) {
-                        color = c;
-                        break;
-                    }
+                    if (!used_colors[c]) { color = c; break; }
                 }
             }
+        } else {
+            // 跨越调用：必须使用 Callee-Saved (0-6)，否则会被 Call 破坏
+            for (int c = 0; c < 7; c++) {
+                if (!used_colors[c]) { color = c; break; }
+            }
+            // 如果 Callee-Saved 耗尽，则 color 保持 -1，溢出到栈上
         }
-        // 如果 crosses_call[node] 为 true，color 保持 -1，强制 Spill 到栈上！
         allocator->vreg_colors[node] = color; // 如果为 -1，则表示 Spilled
         if (color != -1) {
             allocator->used_callee_saved[color] = true;

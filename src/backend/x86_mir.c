@@ -160,6 +160,22 @@ static void store_result_mir(X86Block* block, RegAllocator* alloc, SirValue* val
     }
 }
 
+static X86Condition invert_cond(X86Condition cond) {
+    switch (cond) {
+        case X86_COND_E: return X86_COND_NE;
+        case X86_COND_NE: return X86_COND_E;
+        case X86_COND_L: return X86_COND_GE;
+        case X86_COND_LE: return X86_COND_G;
+        case X86_COND_G: return X86_COND_LE;
+        case X86_COND_GE: return X86_COND_L;
+        case X86_COND_B: return X86_COND_AE;
+        case X86_COND_BE: return X86_COND_A;
+        case X86_COND_A: return X86_COND_BE;
+        case X86_COND_AE: return X86_COND_B;
+        default: return cond;
+    }
+}
+
 // MIR 窥孔优化器 (独立于后端的统一优化)
 static void mir_peephole_optimize(X86Function* func) {
     for (X86Block* block = func->first_block; block; block = block->next) {
@@ -190,7 +206,53 @@ static void mir_peephole_optimize(X86Function* func) {
                 }
             }
 
-            // 模式: SETCC -> MOVZX -> TEST -> JCC NE (分支融合)
+            // 消除 ADD/SUB reg, 0
+            if ((inst->opcode == X86_INST_ADD || inst->opcode == X86_INST_SUB) && 
+                inst->ops[1].kind == X86_OP_IMM && inst->ops[1].as.imm == 0) {
+                X86Inst* next = inst->next;
+                if (prev) prev->next = next;
+                else block->first_inst = next;
+                if (block->last_inst == inst) block->last_inst = prev;
+                free(inst);
+                inst = next;
+                continue;
+            }
+
+            // 消除 IMUL reg, 1，转换 IMUL reg, 0 为 XOR reg, reg
+            if (inst->opcode == X86_INST_IMUL && inst->ops[1].kind == X86_OP_IMM) {
+                if (inst->ops[1].as.imm == 1) {
+                    X86Inst* next = inst->next;
+                    if (prev) prev->next = next;
+                    else block->first_inst = next;
+                    if (block->last_inst == inst) block->last_inst = prev;
+                    free(inst);
+                    inst = next;
+                    continue;
+                } else if (inst->ops[1].as.imm == 0) {
+                    inst->opcode = X86_INST_XOR;
+                    inst->ops[1].kind = X86_OP_REG;
+                    inst->ops[1].as.reg = inst->ops[0].as.reg;
+                }
+            }
+
+            // 优化 LEA reg, [reg + 0]
+            if (inst->opcode == X86_INST_LEA && inst->ops[1].kind == X86_OP_MEM_BASE_DISP && inst->ops[1].as.mem_bd.disp == 0) {
+                if (inst->ops[0].as.reg == inst->ops[1].as.mem_bd.base) {
+                    X86Inst* next = inst->next;
+                    if (prev) prev->next = next;
+                    else block->first_inst = next;
+                    if (block->last_inst == inst) block->last_inst = prev;
+                    free(inst);
+                    inst = next;
+                    continue;
+                } else {
+                    inst->opcode = X86_INST_MOV;
+                    inst->ops[1].kind = X86_OP_REG;
+                    inst->ops[1].as.reg = inst->ops[1].as.mem_bd.base;
+                }
+            }
+
+            // 模式: SETCC -> MOVZX -> TEST -> JCC (分支融合)
             // 将比较指令和跳转指令直接融合，消除中间的布尔值计算
             if (inst->opcode == X86_INST_SETCC) {
                 X86Inst* i2 = inst->next;
@@ -198,13 +260,20 @@ static void mir_peephole_optimize(X86Function* func) {
                     X86Inst* i3 = i2->next;
                     if (i3 && i3->opcode == X86_INST_TEST && i3->ops[0].as.reg == inst->ops[0].as.reg) {
                         X86Inst* i4 = i3->next;
-                        if (i4 && i4->opcode == X86_INST_JCC && i4->cond == X86_COND_NE) {
-                            i4->cond = inst->cond; // 融合条件
+                        if (i4 && i4->opcode == X86_INST_JCC) {
+                            if (i4->cond == X86_COND_NE) {
+                                i4->cond = inst->cond; // 融合条件
+                            } else if (i4->cond == X86_COND_E) {
+                                i4->cond = invert_cond(inst->cond); // 反转条件
+                            } else {
+                                goto skip_fusion;
+                            }
                             if (prev) prev->next = i4;
                             else block->first_inst = i4;
                             free(inst); free(i2); free(i3);
                             inst = i4;
                             continue;
+                        skip_fusion:;
                         }
                     }
                 }
@@ -610,7 +679,11 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
                         
                         if (inst->operands[1]->kind == SIR_VAL_CONST_INT && 
                             imm >= -2147483648LL && imm <= 2147483647LL) {
-                            emit_inst2(xblock, X86_INST_CMP, op_reg(left, size), op_imm(imm, size));
+                            if (imm == 0) {
+                                emit_inst2(xblock, X86_INST_TEST, op_reg(left, size), op_reg(left, size));
+                            } else {
+                                emit_inst2(xblock, X86_INST_CMP, op_reg(left, size), op_imm(imm, size));
+                            }
                         } else {
                             X86Reg right_scratch = (left == X86_REG_RCX) ? X86_REG_RDX : X86_REG_RCX;
                             X86Reg right = load_operand_mir(xblock, &allocator, inst->operands[1], right_scratch, xfunc->frame_size);
@@ -831,7 +904,14 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
                                 sib.as.mem_sib.disp = 0;
                                 emit_inst2(xblock, X86_INST_LEA, op_reg(dest_reg, 8), sib);
                             } else {
-                                emit_inst2(xblock, X86_INST_IMUL, op_reg(idx, 8), op_imm(element_size, 8));
+                                if (element_size > 0 && (element_size & (element_size - 1)) == 0) {
+                                    int log2 = 0;
+                                    uint64_t temp = element_size;
+                                    while (temp > 1) { log2++; temp >>= 1; }
+                                    emit_inst2(xblock, X86_INST_SHL, op_reg(idx, 8), op_imm(log2, 1));
+                                } else {
+                                    emit_inst2(xblock, X86_INST_IMUL, op_reg(idx, 8), op_imm(element_size, 8));
+                                }
                                 emit_inst2(xblock, X86_INST_ADD, op_reg(dest_reg, 8), op_reg(idx, 8));
                             }
                         }
@@ -991,7 +1071,11 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
                             int64_t imm = inst->operands[2 + i * 2]->kind == SIR_VAL_CONST_INT ? inst->operands[2 + i * 2]->as.int_val : 0;
                             if (inst->operands[2 + i * 2]->kind == SIR_VAL_CONST_INT && 
                                 imm >= -2147483648LL && imm <= 2147483647LL) {
-                                emit_inst2(xblock, X86_INST_CMP, op_reg(X86_REG_RAX, 8), op_imm(imm, 8));
+                                if (imm == 0) {
+                                    emit_inst2(xblock, X86_INST_TEST, op_reg(X86_REG_RAX, 8), op_reg(X86_REG_RAX, 8));
+                                } else {
+                                    emit_inst2(xblock, X86_INST_CMP, op_reg(X86_REG_RAX, 8), op_imm(imm, 8));
+                                }
                             } else {
                                 X86Reg val_reg = load_operand_mir(xblock, &allocator, inst->operands[2 + i * 2], X86_REG_RCX, xfunc->frame_size);
                                 emit_inst2(xblock, X86_INST_CMP, op_reg(X86_REG_RAX, 8), op_reg(val_reg, 8));
