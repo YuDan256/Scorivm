@@ -943,7 +943,13 @@ static AstNode* func_declaration(Parser* parser) {
 
 static AstNode* union_declaration(Parser* parser) {
     Token keyword = parser->previous;
-    bool is_edita = match(parser, TK_KW_EDITA);
+    bool is_densa = false;
+    bool is_edita = false;
+    while (true) {
+        if (match(parser, TK_TY_DENSA)) is_densa = true;
+        else if (match(parser, TK_KW_EDITA)) is_edita = true;
+        else break;
+    }
     
     consume(parser, TK_IDENTIFIER, "Nomen unionis exspectatur.");
     Token name = parser->previous;
@@ -973,7 +979,7 @@ static AstNode* union_declaration(Parser* parser) {
     AstNode* node = ast_create_node(&parser->arena, AST_UNION_DECL, keyword);
     node->as.struct_decl.name = name;
     node->as.struct_decl.is_editus = is_edita;
-    node->as.struct_decl.is_densa = false;
+    node->as.struct_decl.is_densa = is_densa;
     node->as.struct_decl.fields = fields;
     node->as.struct_decl.field_count = field_count;
     return node;

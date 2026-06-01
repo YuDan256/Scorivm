@@ -90,7 +90,7 @@ ScoriaType* type_get_acies(ScoriaType* inner, uint32_t length);
 
 // 创建结构体、联合体和函数类型
 ScoriaType* type_create_forma(Token name, bool is_densa);
-ScoriaType* type_create_unio(Token name);
+ScoriaType* type_create_unio(Token name, bool is_densa);
 void type_forma_add_field(ScoriaType* forma_type, Token name, ScoriaType* field_type);
 
 ScoriaType* type_create_enum(Token name);

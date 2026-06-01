@@ -838,7 +838,7 @@ static void collect_declarations(TypeChecker* checker, AstNode* program) {
                 type_error(checker, decl->as.struct_decl.name, "Nomen formae iam definitum est.");
             }
         } else if (decl->kind == AST_UNION_DECL) {
-            ScoriaType* unio_type = type_create_unio(decl->as.struct_decl.name);
+            ScoriaType* unio_type = type_create_unio(decl->as.struct_decl.name, decl->as.struct_decl.is_densa);
             if (!symtab_define(&checker->symtab, decl->as.struct_decl.name, SYM_UNION, unio_type, decl, decl->as.struct_decl.is_editus)) {
                 type_error(checker, decl->as.struct_decl.name, "Nomen unionis iam definitum est.");
             }

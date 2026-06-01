@@ -151,13 +151,13 @@ ScoriaType* type_create_forma(Token name, bool is_densa) {
     return t; // 结构体通过名字区分，不放入 intern 池
 }
 
-ScoriaType* type_create_unio(Token name) {
+ScoriaType* type_create_unio(Token name, bool is_densa) {
     ScoriaType* t = (ScoriaType*)malloc(sizeof(ScoriaType));
     t->kind = TY_UNIO;
     t->as.struct_type.name = name;
     t->as.struct_type.fields = NULL;
     t->as.struct_type.field_count = 0;
-    t->as.struct_type.is_densa = false;
+    t->as.struct_type.is_densa = is_densa;
     return t; // 联合体通过名字区分，不放入 intern 池
 }
 
@@ -211,6 +211,7 @@ int type_get_align(ScoriaType* type) {
             return max_align;
         }
         case TY_UNIO: {
+            if (type->as.struct_type.is_densa) return 1;
             int max_align = 1;
             for (int i = 0; i < type->as.struct_type.field_count; i++) {
                 int a = type_get_align(type->as.struct_type.fields[i].type);
@@ -279,11 +280,14 @@ int type_get_size(ScoriaType* type) {
             int max_align = 1;
             for (int i = 0; i < type->as.struct_type.field_count; i++) {
                 int field_size = type_get_size(type->as.struct_type.fields[i].type);
-                int field_align = type_get_align(type->as.struct_type.fields[i].type);
+                int field_align = type->as.struct_type.is_densa ? 1 : type_get_align(type->as.struct_type.fields[i].type);
                 if (field_align > max_align) max_align = field_align;
                 if (field_size > max_size) max_size = field_size;
             }
-            return (max_size + max_align - 1) & ~(max_align - 1);
+            if (!type->as.struct_type.is_densa) {
+                return (max_size + max_align - 1) & ~(max_align - 1);
+            }
+            return max_size;
         }
         case TY_ENUM: return 4; // 枚举底层严格等价于 i32
         default: return 8;
