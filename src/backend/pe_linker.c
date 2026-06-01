@@ -194,12 +194,18 @@ static void emit_x86_inst(PeCodeBuffer* cb, X86Inst* inst, LinkCtx* ctx) {
             } else if (op1->kind == X86_OP_IMM) {
                 if (opc == X86_INST_TEST) {
                     emit_rex(cb, w, 0, 0, op0->as.reg > 7); emit8(cb, op0->size == 1 ? 0xF6 : 0xF7); emit_modrm(cb, 3, 0, op0->as.reg & 7);
-                    if (op0->size == 1) emit8(cb, (uint8_t)op1->as.imm); else emit32(cb, (uint32_t)op1->as.imm);
+                    if (op0->size == 1) emit8(cb, (uint8_t)op1->as.imm);
+                    else if (op0->size == 2) { emit8(cb, (uint8_t)(op1->as.imm & 0xFF)); emit8(cb, (uint8_t)((op1->as.imm >> 8) & 0xFF)); }
+                    else emit32(cb, (uint32_t)op1->as.imm);
                 } else {
                     emit_rex(cb, w, 0, 0, op0->as.reg > 7);
                     if (op0->size == 1) { emit8(cb, 0x80); emit_modrm(cb, 3, opc_ext, op0->as.reg & 7); emit8(cb, (uint8_t)op1->as.imm); }
                     else if (op1->as.imm >= -128 && op1->as.imm <= 127) { emit8(cb, 0x83); emit_modrm(cb, 3, opc_ext, op0->as.reg & 7); emit8(cb, (uint8_t)op1->as.imm); }
-                    else { emit8(cb, 0x81); emit_modrm(cb, 3, opc_ext, op0->as.reg & 7); emit32(cb, (uint32_t)op1->as.imm); }
+                    else { 
+                        emit8(cb, 0x81); emit_modrm(cb, 3, opc_ext, op0->as.reg & 7); 
+                        if (op0->size == 2) { emit8(cb, (uint8_t)(op1->as.imm & 0xFF)); emit8(cb, (uint8_t)((op1->as.imm >> 8) & 0xFF)); }
+                        else emit32(cb, (uint32_t)op1->as.imm); 
+                    }
                 }
             }
             break;
@@ -209,7 +215,11 @@ static void emit_x86_inst(PeCodeBuffer* cb, X86Inst* inst, LinkCtx* ctx) {
             else if (op1->kind == X86_OP_IMM) {
                 emit_rex(cb, w, op0->as.reg > 7, 0, op0->as.reg > 7);
                 if (op1->as.imm >= -128 && op1->as.imm <= 127) { emit8(cb, 0x6B); emit_modrm(cb, 3, op0->as.reg & 7, op0->as.reg & 7); emit8(cb, (uint8_t)op1->as.imm); }
-                else { emit8(cb, 0x69); emit_modrm(cb, 3, op0->as.reg & 7, op0->as.reg & 7); emit32(cb, (uint32_t)op1->as.imm); }
+                else { 
+                    emit8(cb, 0x69); emit_modrm(cb, 3, op0->as.reg & 7, op0->as.reg & 7); 
+                    if (op0->size == 2) { emit8(cb, (uint8_t)(op1->as.imm & 0xFF)); emit8(cb, (uint8_t)((op1->as.imm >> 8) & 0xFF)); }
+                    else emit32(cb, (uint32_t)op1->as.imm); 
+                }
             }
             break;
         case X86_INST_IDIV: case X86_INST_DIV: case X86_INST_NEG: case X86_INST_NOT: case X86_INST_INC: case X86_INST_DEC: {
