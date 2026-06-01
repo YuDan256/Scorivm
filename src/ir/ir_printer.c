@@ -122,6 +122,11 @@ static void print_inst(FILE* out, SirInst* inst) {
         case SIR_CAST: fprintf(out, "cast "); break;
         case SIR_GET_PARAM: fprintf(out, "get_param "); break;
         case SIR_SELECT: fprintf(out, "select "); break;
+        case SIR_SYS_ALLOC: fprintf(out, "sys_alloc "); break;
+        case SIR_SYS_FREE: fprintf(out, "sys_free "); break;
+        case SIR_SYS_WRITE: fprintf(out, "sys_write "); break;
+        case SIR_SYS_READ: fprintf(out, "sys_read "); break;
+        case SIR_SYS_EXIT: fprintf(out, "sys_exit "); break;
         default: fprintf(out, "operatio_ignota "); break;
     }
 
