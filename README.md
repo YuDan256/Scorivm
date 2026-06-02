@@ -5,7 +5,7 @@
 
 <br>
 
-*Lingua Latina | <a href="README_zh-CN.md">简体中文</a>*
+*Lingua Latina | <a href="README_lzh.md">文言</a>*
 
 <br>
 
