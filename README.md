@@ -1,11 +1,11 @@
 <div align="center">
 
 # S C O R I V M
-**L E X ¡¤ E T ¡¤ O R D O ¡¤ S I L I C I I**
+**L E X Â· E T Â· O R D O Â· S I L I C I I**
 
 <br>
 
-*Lingua Latina | <a href="README_zh-CN.md">¼òÌåÖÐÎÄ</a>*
+*Lingua Latina | <a href="README_zh-CN.md">ç®€ä½“ä¸­æ–‡</a>*
 
 <br>
 
@@ -19,97 +19,104 @@
 
 In temporibus nostris, ubi aedificia programmatum sine fine et sine ratione in immensum crescunt, et ubi machinae sub gravi pondere bibliothecarum turgidarum gemunt, hoc opus ad virtutem antiquam et austeram revertitur. Maiestas non in multitudine, sed in simplicitate et veritate consistit. 
 
-Scorivm est compilator e metallo nudo aedificatus, pars minima sed potentissima, pendens tantum **138 centies mille octetos (138 KB)**. Nullis adminiculis externis, nullis vinculatoribus obesus, codicem legit, purgat, et directe in praecepta machinae (X86_64) cum formis exsecutabilibus vertit. Hic non est locus ornamentis aut fallaciis; hic est solus locus veritati absolutae, ubi intellectus humanus cum structura intima silicii convenit. Opus hoc est demonstratio: nos adhuc posse res magnas aedificare ex parvis, si modo disciplinam mentis servamus.
+Scorivm est compilator e metallo nudo aedificatus, pars minima sed potentissima, pendens tantum **CCXL milia octetorum (240 KB)**. Nullis adminiculis externis, nullis vinculatoribus obesus, codicem legit, purgat, et directe in praecepta machinae (X86_64) cum formis exsecutabilibus vertit. Hic non est locus ornamentis aut fallaciis; hic est solus locus veritati absolutae, ubi intellectus humanus cum structura intima silicii convenit. Opus hoc est demonstratio: nos adhuc posse res magnas aedificare ex parvis, si modo disciplinam mentis servamus.
 
 
-### L I B E R ¡¤ I : D E ¡¤ A R C H I T E C T V R A
+### L I B E R Â· I : D E Â· A R C H I T E C T V R A Â· C O M P I L A T O R I S
 
 Opus non fortuito constructum est, sed summa peritia et ratione. Machina, ut sine ullo impedimento ad celeritatem lucis procedat, his praeceptis aedificatoria paret:
 
-**I. Lector et Arbor Veritatis:** Lector noster sine ullis servis externis aut machinis generantibus (sicut Lex vel Yacc) functiones suas explet. Codicem rudem accipit, in partes secat divinas, et ex chaos arborem logicam deducit. Haec arbor transit in formam intermediam SSA, ubi omnis variabilis semel tantum nascitur.
+**I. Lector et Arbor Veritatis:** Lector noster sine ullis servis externis aut machinis generantibus functiones suas explet. Codicem rudem accipit, in partes secat divinas, et ex chaos arborem logicam deducit. Haec arbor transit in formam intermediam SSA, ubi omnis variabilis semel tantum nascitur.
 
 **II. Undecim Ministri Nullo Exsilio:** In praedis operandis, memoria RAM iniqua et tarda est. Ergo undecim registra physica in campum vocata sunt per artem colorationis graphorum. Variabiles caducae in praesidia velociora recipiuntur, ne ulla data in profundum acervi repelli debeant.
 
 **III. Via Recta et Abolitio Divinationis:** Processores hodierni multum temporis perdunt vaticinando de viis futuris. In architectura nostra, ubi conditio `si` occurrit, divinatio evitatur. Scorivm flumen instructionum rectum facit per praecepta conditionalia `CMOVcc`. Machina numquam errat, quia nunquam divinat.
 
-**IV. Aemulatio et Lusus Arithmeticus:** Saepe evenit ut registra in proelio se ipsa concidant. Ubi hostis modernus copias temporarias quaerit, Scorivm veritatibus mathematicis utitur. Leges algebrae (sicut aemulatio invicem per *neg+add*) usurpantur ad pugnas registrorum placandas. 
 
-**V. Pondera Depulsa et Mors Acervi:** Architectura innecessaria, sicut retinacula marginis acervi (`push rbp`) et rudamenta vetera `REX`, penitus exstirpata est. Sola rectio per `RSP` remanet. Codex levior et purus fit, ut fauces machinae celerrime et avide eum consumant.
+### L I B E R Â· I I : D E Â· N A T V R A Â· E T Â· L E G I B V S Â· L I N G V A E
+
+Lingua ipsius Scorivm non est ancilla aliarum, sed domina metalli nudi. Hae sunt leges quibus gubernat:
+
+**I. Sine Vinculis Barbarorum:** Scorivm bibliothecam normatam C penitus respuit. Ut machinam sine ulla umbra systematis operandi tangat, sola porta `barbara` adhibetur ad communicandum cum nucleo intimo.
+
+**II. Acies, Cohors et Via:** Memoria stricte et aperte regitur. `Via` est monstrator nudus sine finibus; `cohors` est sagitta gravis cum mensura longitudinis. Nullae conversiones occultae inter has formas tolerantur.
+
+**III. Micae et Formae Densae:** Ad ferramenta et retia imperanda, `forma densa` structuras sine spatiis inanibus cogit. Per verbum `mica`, programmatur ipsos digitos binarios minutissimos secare et iungere potest.
+
+**IV. Sceleta Consonantium:** Ne digiti scribentium fatigentur, lex sinit verba classica ad ossa consonantium reduci. Ita `forma` fit `frm`, `cohors` fit `crs`, `mica` fit `mic`, `aliter` fit `alt`. Oculi hominum brevitatis gaudent, sed oculus compilatoris in arbore AST utrumque unum esse intelligit.
 
 
-### L I B E R ¡¤ I I : M A X I M V M ¡¤ C E R T A M E N
+### L I B E R Â· I I I : M A X I M V M Â· C E R T A M E N
 
-Ad virtutem teli probandam, machina nostra vocata est in proelium maximum numerorum Fibonaccianorum: computationem recursivam `fib(40)`. Ubi ducenties et quater decies viciens centena milia recursiones invocantur. Si Scorivmm cum gigante *MSVC* (opere immensae potentiae Microsoft) comparas, hanc aequitatem et victoriam invenies:
+Ad virtutem teli probandam, machina nostra vocata est in proelium maximum numerorum Fibonaccianorum: computationem recursivam `fib(40)`. Ubi ducenties et quater decies viciens centena milia recursiones invocantur. Si Scorivm cum gigante MSVC comparas, hanc aequitatem et victoriam invenies:
 
-* **Magnitudo Castrorum:** Gigas formidabilis in gigaoctetis metitur et centum vasa instrumentorum secum portat. Scorivm tantum **138 KB** unici fasciculi occupat.
-* **Tempus Armandi:** Gigas, ut codicem in ferrum mutet, XIII millisecondis indiget et systema operandi excitat. Scorivm sine ullo murmure in **XI millisecondis** fulgurat.
+* **Magnitudo Castrorum:** Gigas formidabilis in gigaoctetis metitur. Scorivm tantum **240 KB** unici fasciculi occupat.
+* **Tempus Armandi:** Gigas, ut codicem in ferrum mutet, XIII millisecondis indiget. Scorivm sine ullo murmure in **XI millisecondis** fulgurat.
 * **Magnitudo Teli:** Exitus gigantis LXXXV KB requirit. Scorivm teli cuspidem puram in **II KB** perficit.
-* **Ictus in Proelio:** In campo silicii, uterque hostem in **~CCCXXXVI (336) millisecondis** sternit.
-
-Scorivm exiguam partem spatii occupat, sed aequo gradu currit cum operibus maximis mundi.
-
-
-### L I B E R ¡¤ I I I : D E ¡¤ S O M N O ¡¤ G V B E R N A T O R I S
-
-Est mysterium altum et dignum memoria, quod pauci intelligunt. Si hanc machinam sine fonte pleno et longo electrico curris, id est sub potestate pilae, tempus exsecutionis subito ad **~DLXVII (567) milliseconda** augetur. 
-
-Multi hoc vitium putant, sed re vera lex physicae et triumphus puritatis est. Cum programmatis aedificia crassa curres, preces et monita ad systema operandi fundunt, unde gubernator systematis terretur et vim maximam electricitatis instanter excitat. Scorivm autem tam quieta, tam pura est, ut nullos nuntios, nullas inanes moras memoriae generet. Gubernator eam non sentit, ergo in somno manet et processor ad infimam frequentiam virtutis relinquitur. 
-
-Quod in hoc tempore dilatato vides, non est languor, sed ipse pulsus verus, nudus et frigidus silicii ipsius. Hoc est instrumentum altissimum quo cor machinae inspicere potes.
+* **Ictus in Proelio:** In campo silicii, machina nostra quattuor gradus perfectionis habet, quibus hostem sternit:
+  * **-O0 (Sine Arte):** DXLVIII (548) milliseconda.
+  * **-O1 (Tactica Prima):** CCCXXVI (326) milliseconda. Aequo gradu currit cum gigante.
+  * **-O2 (Evolutio Finium):** CI (101) milliseconda. Fundamenta recursiones in aciem rectam explicantur.
+  * **-O3 (Plicatura Absoluta):** VII (7) milliseconda. Compilator responsum percipit et plicat antequam programma currit. Victoria ante proelium.
 
 
-### L I B E R ¡¤ I V : R I T V S ¡¤ E T ¡¤ I N C A N T A T I O N E S
+### L I B E R Â· I V : D E Â· S O M N O Â· G V B E R N A T O R I S
 
-Ad hanc machinam e codice in vitam vocandam, lex stricta *C11* et *CMake* requiritur. Tolerantia pro erroribus nulla est (`-Werror`). Sequere haec verba:
+Si hanc machinam sub potestate pilae curris, tempus exsecutionis subito ad **~DLXVII (567) milliseconda** augetur. Multi hoc vitium putant, sed re vera lex physicae et triumphus puritatis est. Cum aedificia crassa curres, preces et monita ad systema fundunt, unde gubernator terretur et vim maximam instanter excitat. Scorivm autem tam quietum, tam purum est, ut nullas inanes moras generet. Gubernator id non sentit, ergo in somno manet et processor ad infimam frequentiam virtutis relinquitur. Hoc est pulsus verus et frigidus silicii ipsius.
 
+
+### L I B E R Â· V : R I T V S Â· E T Â· I N C A N T A T I O N E S
+
+Ad hanc machinam aedificandam, sola lex *CMake* requiritur:
 ```bash
-# I. Praeparatio Officinae 
 cmake -B build -DCMAKE_BUILD_TYPE=Release
-
-# II. Fabricatio gladio
 cmake --build build --config Release
 ```
 
-Postquam machina e fornace exiit, his verbis incantamentorum utere, ut divinas technologias probes et inspicias:
-
+Utere his incantamentis ad compilandum:
 ```bash
-# I. Transmutatio codicis in ferrum et exsecutionem excitare
 ./bin/scorivm tests/fib.sco -o fib.exe
-./fib.exe
-
-# II. De Visceribus Machinae: Ut formam intermediam IR legas
+./bin/scorivm tests/fib.sco -O3 -o fib.exe
 ./bin/scorivm tests/fib.sco -o fib.exe --emitte-ir
-
-# III. De Metallo Nudo: Ut ipsas instructiones X86_64 inspicias
 ./bin/scorivm tests/fib.sco -o fib.exe --emitte-asm
-
-# IV. De Verbis Copiosis: Ut compilator acta mystica plene narret
-./bin/scorivm tests/fib.sco -o fib.exe --verbosus
 ```
 
 
-### L I B E R ¡¤ V : S P E C I M E N ¡¤ S C R I P T V R A E
+### L I B E R Â· V I : S P E C I M E N Â· S C R I P T V R A E
 
-Ecce forma linguae quam Scorivm devorat et in ferrum vertit. Codex pura lingua Romana scriptus est, barbaris verbis carens, sed logica hodierna instructus:
+Ecce duo specimina artis. Primum est logica pura, secundum est dominatio ferramentorum.
 
-```
-// Computatio Recursiva Fibonacciana
-// Tabula: tests/fib.sco
-
+**Specimen I: Computatio et Logica**
+```scorivm
 actio fib(n: medius) -> medius {
     si (n <= 1) redde n;
     aliter redde fib(n - 1) + fib(n - 2);
 }
 
-// Origo exsecutionis
 actio princeps() -> medius {
-    scribe("Calculando Fib(40)... Exspecta!\n");
-    
+    scribe("Calculando... Exspecta!\n");
     sit res: medius = fib(40);
-    
     scribe("Resultatum: ", res, "\n");
     redde 0;
 }
+```
+
+**Specimen II: Dominatio Metalli Nudi**
+```scorivm
+forma densa edita RegistrumStatus {
+    sit paratus: logica mica 1; 
+    sit signum: p8 mic 3;      
+    sit _: p8 mic 4;           
+}
+
+// Nomen functionis exactum esse debet ut in DLL definitur
+actio bbr("kernel32.dll") WriteFile(
+    hFile: via nhl,
+    lpBuffer: via RegistrumStatus,
+    nNumberOfBytesToWrite: p32,
+    lpNumberOfBytesWritten: via p32,
+    lpOverlapped: via nhl
+) -> lgc;
 ```
 
 <br>
