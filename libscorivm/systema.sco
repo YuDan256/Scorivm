@@ -36,7 +36,7 @@ actio barbara("kernel32.dll") CloseHandle(
 // ================= [ Windows 常量 ] =================
 lex INFINITE: DWORD = 0xFFFFFFFF;
 
-// ================= [ Scoria 封装 ] =================
+// ================= [ Scorivm 封装 ] =================
 
 // 执行系统命令 (例如调用汇编器将 .asm 编译为 .exe)
 // 返回命令的退出状态码

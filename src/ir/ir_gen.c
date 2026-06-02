@@ -34,9 +34,9 @@ static bool evaluate_const_expr(IrBuilder* builder, AstNode* expr, uint8_t* buff
             return true;
         }
     } else if (expr->kind == AST_ARRAY_LITERAL) {
-        ScoriaType* arr_type = expr->expr_type;
+        ScorivmType* arr_type = expr->expr_type;
         if (!arr_type || arr_type->kind != TY_ACIES) return false;
-        ScoriaType* elem_type = arr_type->as.array.inner;
+        ScorivmType* elem_type = arr_type->as.array.inner;
         int elem_size = type_get_size(elem_type);
         for (int i = 0; i < expr->as.array_literal.element_count; i++) {
             if (!evaluate_const_expr(builder, expr->as.array_literal.elements[i], buffer + i * elem_size, elem_size)) {
@@ -45,14 +45,14 @@ static bool evaluate_const_expr(IrBuilder* builder, AstNode* expr, uint8_t* buff
         }
         return true;
     } else if (expr->kind == AST_STRUCT_LITERAL) {
-        ScoriaType* struct_type = expr->expr_type;
+        ScorivmType* struct_type = expr->expr_type;
         if (!struct_type || (struct_type->kind != TY_FORMA && struct_type->kind != TY_UNIO)) return false;
         for (int i = 0; i < expr->as.struct_literal.field_count; i++) {
             Token field_name = expr->as.struct_literal.field_names[i];
             AstNode* field_val = expr->as.struct_literal.field_values[i];
             
             int byte_offset = 0;
-            ScoriaType* field_type = NULL;
+            ScorivmType* field_type = NULL;
             
             int bit_offset = 0;
             int bit_size = 0;
@@ -115,7 +115,7 @@ static bool evaluate_const_expr(IrBuilder* builder, AstNode* expr, uint8_t* buff
         if (!evaluate_const_expr(builder, expr->as.binary.left, left_buf, size)) return false;
         if (!evaluate_const_expr(builder, expr->as.binary.right, right_buf, size)) return false;
         
-        ScoriaType* t = expr->expr_type;
+        ScorivmType* t = expr->expr_type;
         if (!t) return false;
         
         if (t->kind == TY_F32) {
@@ -155,7 +155,7 @@ static bool evaluate_const_expr(IrBuilder* builder, AstNode* expr, uint8_t* buff
         if (!evaluate_const_expr(builder, expr->as.unary.operand, buffer, size)) return false;
         
         if (expr->as.unary.op.kind == TK_MINUS) {
-            ScoriaType* t = expr->expr_type;
+            ScorivmType* t = expr->expr_type;
             if (!t) return false;
             
             if (t->kind == TY_F32) {
@@ -192,7 +192,7 @@ static bool is_simple_assign(AstNode* stmt, AstNode** out_target, AstNode** out_
     if (stmt->kind == AST_EXPR_STMT && stmt->as.expr_stmt.expr->kind == AST_ASSIGN_EXPR) {
         AstNode* assign = stmt->as.expr_stmt.expr;
         if (assign->as.assign.op.kind == TK_ASSIGN && assign->as.assign.target->kind == AST_IDENT_EXPR) {
-            ScoriaType* t = assign->as.assign.target->expr_type;
+            ScorivmType* t = assign->as.assign.target->expr_type;
             // 仅对标量整数/指针进行 CMOV 优化 (浮点数和结构体不支持简单的 CMOV)
             if (!t || t->kind == TY_F32 || t->kind == TY_F64 || type_get_size(t) > 8) return false;
             
@@ -326,7 +326,7 @@ static SirValue* gen_string_slice(IrBuilder* builder, const char* str, int len) 
     memcpy(str_copy, str, len);
     str_copy[len] = '\0';
     SirValue* raw_str_val = ir_const_string(builder, str_copy, len);
-    ScoriaType* cohors_type = type_get_cohors(type_get_basic(TY_LITTERA));
+    ScorivmType* cohors_type = type_get_cohors(type_get_basic(TY_LITTERA));
     SirValue* slice_ptr = ir_build_alloca(builder, cohors_type, 16);
     ir_build_store(builder, raw_str_val, slice_ptr);
     SirValue* len_offset = ir_const_int(builder, type_get_basic(TY_I32), 1);
@@ -342,7 +342,7 @@ static void gen_scribe_call(IrBuilder* builder, SirValue* callee, SirValue* arg)
     ir_build_call(builder, callee, args, 1, type_get_basic(TY_NIHIL));
 }
 
-static void gen_scribe_value(IrBuilder* builder, SirValue* callee, ScoriaType* type, SirValue* ptr) {
+static void gen_scribe_value(IrBuilder* builder, SirValue* callee, ScorivmType* type, SirValue* ptr) {
     if (type->kind == TY_FORMA || type->kind == TY_UNIO) {
         char* struct_name_buf = (char*)arena_alloc(&builder->arena, type->as.struct_type.name.length + 5);
         snprintf(struct_name_buf, type->as.struct_type.name.length + 5, "%.*s { ", type->as.struct_type.name.length, type->as.struct_type.name.start);
@@ -394,7 +394,7 @@ static void gen_scribe_value(IrBuilder* builder, SirValue* callee, ScoriaType* t
     } else if (type->kind == TY_ACIES) {
         gen_scribe_call(builder, callee, gen_string_slice(builder, "[", 1));
         int len = type->as.array.length;
-        ScoriaType* inner = type->as.array.inner;
+        ScorivmType* inner = type->as.array.inner;
         if (len == 0 && ptr && ptr->type && ptr->type->kind == TY_VIA && ptr->type->as.inner->kind == TY_ACIES) {
             len = ptr->type->as.inner->as.array.length;
             inner = ptr->type->as.inner->as.array.inner;
@@ -424,7 +424,7 @@ static void gen_scribe_value(IrBuilder* builder, SirValue* callee, ScoriaType* t
         // 动态生成 IR 循环来打印切片内容
         gen_scribe_call(builder, callee, gen_string_slice(builder, "[", 1));
         
-        ScoriaType* inner = type->as.inner;
+        ScorivmType* inner = type->as.inner;
         int inner_size = type_get_size(inner);
         
         // 获取切片长度
@@ -522,7 +522,7 @@ static SirValue* gen_lvalue(IrBuilder* builder, AstNode* expr) {
         }
         case AST_INDEX_EXPR: {
             SirValue* ptr = NULL;
-            ScoriaType* target_type = expr->as.index_expr.target->expr_type;
+            ScorivmType* target_type = expr->as.index_expr.target->expr_type;
             if (target_type && target_type->kind == TY_ACIES) {
                 // 数组退化为指针：直接取数组的左值地址，不进行 Load
                 ptr = gen_lvalue(builder, expr->as.index_expr.target);
@@ -530,7 +530,7 @@ static SirValue* gen_lvalue(IrBuilder* builder, AstNode* expr) {
                 // 切片：先取切片的左值地址，然后 GEP 取出内部的游标 (前 8 字节)
                 SirValue* slice_ptr = gen_lvalue(builder, expr->as.index_expr.target);
                 SirValue* zero_offset = ir_const_int(builder, type_get_basic(TY_I32), 0);
-                ScoriaType* inner_type = expr->expr_type ? expr->expr_type : type_get_basic(TY_UNKNOWN);
+                ScorivmType* inner_type = expr->expr_type ? expr->expr_type : type_get_basic(TY_UNKNOWN);
                 SirValue* raw_ptr_ptr = ir_build_gep(builder, slice_ptr, zero_offset, 1, type_get_via(type_get_via(inner_type)));
                 ptr = ir_build_load(builder, raw_ptr_ptr);
             } else {
@@ -539,7 +539,7 @@ static SirValue* gen_lvalue(IrBuilder* builder, AstNode* expr) {
             }
             SirValue* index = gen_expression(builder, expr->as.index_expr.index);
             int element_size = expr->expr_type ? type_get_size(expr->expr_type) : 8;
-            ScoriaType* res_type = expr->expr_type ? type_get_via(expr->expr_type) : type_get_via(type_get_basic(TY_UNKNOWN));
+            ScorivmType* res_type = expr->expr_type ? type_get_via(expr->expr_type) : type_get_via(type_get_basic(TY_UNKNOWN));
             return ir_build_gep(builder, ptr, index, element_size, res_type);
         }
         case AST_ARRAY_LITERAL:
@@ -569,7 +569,7 @@ static SirValue* gen_lvalue(IrBuilder* builder, AstNode* expr) {
                 return NULL;
             }
 
-            ScoriaType* obj_type = expr->as.member_expr.object->expr_type;
+            ScorivmType* obj_type = expr->as.member_expr.object->expr_type;
             Symbol* obj_sym = expr->as.member_expr.object->resolved_symbol;
             if ((obj_type && obj_type->kind == TY_MODULE) || 
                 (obj_sym && obj_sym->type && obj_sym->type->kind == TY_MODULE)) {
@@ -605,7 +605,7 @@ static SirValue* gen_lvalue(IrBuilder* builder, AstNode* expr) {
                 byte_offset = type_get_field_offset(obj_type, expr->as.member_expr.property);
             }
             SirValue* index_val = ir_const_int(builder, type_get_basic(TY_I32), byte_offset);
-            ScoriaType* res_type = expr->expr_type ? type_get_via(expr->expr_type) : type_get_via(type_get_basic(TY_UNKNOWN));
+            ScorivmType* res_type = expr->expr_type ? type_get_via(expr->expr_type) : type_get_via(type_get_basic(TY_UNKNOWN));
             return ir_build_gep(builder, obj_ptr, index_val, 1, res_type);
         }
         default: break;
@@ -681,11 +681,11 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                     }
                     str[j++] = expr->token.start[i];
                 }
-                str[j] = '\0'; // 仅为编译器内部 C 字符串打印安全保留，不计入 Scoria 物理长度
+                str[j] = '\0'; // 仅为编译器内部 C 字符串打印安全保留，不计入 Scorivm 物理长度
                 
-                // 纯净的 Scoria 字符串：绝不偷偷追加 \0，长度就是实际字符数
+                // 纯净的 Scorivm 字符串：绝不偷偷追加 \0，长度就是实际字符数
                 SirValue* raw_str_val = ir_const_string(builder, str, j);
-                ScoriaType* cohors_type = type_get_cohors(type_get_basic(TY_LITTERA));
+                ScorivmType* cohors_type = type_get_cohors(type_get_basic(TY_LITTERA));
                 SirValue* slice_ptr = ir_build_alloca(builder, cohors_type, 16);
                 
                 ir_build_store(builder, raw_str_val, slice_ptr);
@@ -750,12 +750,12 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
             break;
         }
         case AST_ARRAY_LITERAL: {
-            ScoriaType* arr_type = expr->expr_type;
+            ScorivmType* arr_type = expr->expr_type;
             if (!arr_type) return NULL;
             int arr_size = type_get_size(arr_type);
             SirValue* arr_ptr = ir_build_alloca(builder, arr_type, arr_size);
             
-            ScoriaType* elem_type = arr_type->as.array.inner;
+            ScorivmType* elem_type = arr_type->as.array.inner;
             int elem_size = type_get_size(elem_type);
             
             for (int i = 0; i < expr->as.array_literal.element_count; i++) {
@@ -772,7 +772,7 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
             return arr_ptr;
         }
         case AST_STRUCT_LITERAL: {
-            ScoriaType* struct_type = expr->expr_type;
+            ScorivmType* struct_type = expr->expr_type;
             if (!struct_type) return NULL;
             int struct_size = type_get_size(struct_type);
             SirValue* struct_ptr = ir_build_alloca(builder, struct_type, struct_size);
@@ -805,7 +805,7 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                 SirValue* field_val = gen_expression(builder, expr->as.struct_literal.field_values[i]);
                 
                 int byte_offset = 0;
-                ScoriaType* field_type = NULL;
+                ScorivmType* field_type = NULL;
                 
                 int bit_offset = 0;
                 int bit_size = 0;
@@ -884,7 +884,7 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
             break;
         }
         case AST_ASSIGN_EXPR: {
-            ScoriaType* type = expr->expr_type ? expr->expr_type : expr->as.assign.target->expr_type;
+            ScorivmType* type = expr->expr_type ? expr->expr_type : expr->as.assign.target->expr_type;
             if (type && (type->kind == TY_FORMA || type->kind == TY_UNIO || type->kind == TY_ACIES || type->kind == TY_COHORS)) {
                 // 结构体、联合体、数组和切片赋值：使用 memcpy 拷贝内存块
                 SirValue* dst_ptr = gen_lvalue(builder, expr->as.assign.target);
@@ -901,10 +901,10 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                 
                 int bit_offset = 0, bit_size = 0;
                 bool is_bitfield = false;
-                ScoriaType* bf_type = NULL;
+                ScorivmType* bf_type = NULL;
                 
                 if (expr->as.assign.target->kind == AST_MEMBER_EXPR) {
-                    ScoriaType* obj_type = expr->as.assign.target->as.member_expr.object->expr_type;
+                    ScorivmType* obj_type = expr->as.assign.target->as.member_expr.object->expr_type;
                     if (obj_type && obj_type->kind == TY_VIA) obj_type = obj_type->as.inner;
                     if (type_get_field_layout(obj_type, expr->as.assign.target->as.member_expr.property, NULL, &bit_offset, &bit_size) && bit_size > 0) {
                         is_bitfield = true;
@@ -1026,7 +1026,7 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                 return gen_lvalue(builder, expr->as.unary.operand);
             } else if (expr->as.unary.op.kind == TK_KW_TENE) {
                 SirValue* ptr = gen_expression(builder, expr->as.unary.operand);
-                ScoriaType* target_type = expr->expr_type;
+                ScorivmType* target_type = expr->expr_type;
                 if (target_type && (target_type->kind == TY_FORMA || target_type->kind == TY_UNIO || target_type->kind == TY_ACIES || target_type->kind == TY_COHORS)) {
                     return ptr; // 结构体/联合体/数组/切片退化为指针
                 }
@@ -1074,7 +1074,7 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
             int arg_count = expr->as.call.arg_count;
             bool hidden_ret = type_get_size(expr->expr_type) > 8;
             
-            ScoriaType* callee_type = expr->as.call.callee->expr_type;
+            ScorivmType* callee_type = expr->as.call.callee->expr_type;
             if (callee_type && callee_type->kind == TY_VIA) callee_type = callee_type->as.inner;
             
             bool is_native_var = callee_type && callee_type->kind == TY_ACTIO && callee_type->as.func_type.is_native_variadic;
@@ -1104,13 +1104,13 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                     }
                     
                     int var_count = arg_count - fixed_param_count;
-                    ScoriaType* slice_type = callee_type->as.func_type.param_types[fixed_param_count];
-                    ScoriaType* elem_type = slice_type->as.inner;
+                    ScorivmType* slice_type = callee_type->as.func_type.param_types[fixed_param_count];
+                    ScorivmType* elem_type = slice_type->as.inner;
                     int elem_size = type_get_size(elem_type);
                     
                     SirValue* arr_ptr = NULL;
                     if (var_count > 0) {
-                        ScoriaType* arr_type = type_get_acies(elem_type, var_count);
+                        ScorivmType* arr_type = type_get_acies(elem_type, var_count);
                         arr_ptr = ir_build_alloca(builder, arr_type, var_count * elem_size);
                         for (int i = 0; i < var_count; i++) {
                             SirValue* elem_val = gen_expression(builder, expr->as.call.args[fixed_param_count + i]);
@@ -1151,8 +1151,8 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
             return hidden_ret ? ret_ptr : call_res;
         }
         case AST_CAST_EXPR: {
-            ScoriaType* target_type = expr->expr_type;
-            ScoriaType* src_type = expr->as.cast_expr.value->expr_type;
+            ScorivmType* target_type = expr->expr_type;
+            ScorivmType* src_type = expr->as.cast_expr.value->expr_type;
             
             if (!target_type || !src_type) return NULL;
             
@@ -1185,7 +1185,7 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                 SirValue* zero = ir_const_int(builder, offset->type, 0);
                 offset = ir_build_binary(builder, SIR_SUB, zero, offset);
             }
-            ScoriaType* element_type = expr->expr_type;
+            ScorivmType* element_type = expr->expr_type;
             if (element_type && element_type->kind == TY_VIA) element_type = element_type->as.inner;
             int element_size = type_get_size(element_type);
             return ir_build_gep(builder, ptr, offset, element_size, expr->expr_type);
@@ -1197,7 +1197,7 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
             callee->as.global_name = "crea";
             
             // 动态计算分配类型的实际大小
-            ScoriaType* allocated_type = expr->expr_type;
+            ScorivmType* allocated_type = expr->expr_type;
             bool is_slice = false;
             if (allocated_type) {
                 if (allocated_type->kind == TY_VIA) {
@@ -1289,7 +1289,7 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
                 SirValue* val = ir_build_load(builder, lval);
                 
                 if (expr->kind == AST_MEMBER_EXPR) {
-                    ScoriaType* obj_type = expr->as.member_expr.object->expr_type;
+                    ScorivmType* obj_type = expr->as.member_expr.object->expr_type;
                     if (obj_type && obj_type->kind == TY_VIA) obj_type = obj_type->as.inner;
                     int bit_offset = 0, bit_size = 0;
                     if (type_get_field_layout(obj_type, expr->as.member_expr.property, NULL, &bit_offset, &bit_size) && bit_size > 0) {
@@ -1347,7 +1347,7 @@ static SirValue* gen_expression(IrBuilder* builder, AstNode* expr) {
             SirValue* last_val = NULL;
             for (int i = 0; i < arg_count; i++) {
                 AstNode* arg_expr = expr->as.scribe_expr.args[i];
-                ScoriaType* arg_type = arg_expr->expr_type;
+                ScorivmType* arg_type = arg_expr->expr_type;
                 SirValue* val = gen_expression(builder, arg_expr);
                 
                 bool is_string_slice = (arg_type && arg_type->kind == TY_COHORS && arg_type->as.inner->kind == TY_LITTERA);
@@ -1661,10 +1661,10 @@ static void gen_statement(IrBuilder* builder, AstNode* stmt) {
 }
 
 void ir_gen_generate(IrBuilder* builder, AstNode** programs, int count, int opt_level) {
-    // 查找或创建全局初始化函数 __scoria_init
+    // 查找或创建全局初始化函数 __scorivm_init
     SirFunction* init_func = NULL;
     for (SirFunction* f = builder->module->first_func; f; f = f->next) {
-        if (strcmp(f->name, "__scoria_init") == 0) {
+        if (strcmp(f->name, "__scorivm_init") == 0) {
             init_func = f;
             break;
         }
@@ -1672,8 +1672,8 @@ void ir_gen_generate(IrBuilder* builder, AstNode** programs, int count, int opt_
     
     SirBlock* current_init_block = NULL;
     if (!init_func) {
-        ScoriaType* init_func_type = type_create_actio(type_get_basic(TY_NIHIL), NULL, 0, false, false);
-        init_func = ir_builder_create_function(builder, "__scoria_init", init_func_type);
+        ScorivmType* init_func_type = type_create_actio(type_get_basic(TY_NIHIL), NULL, 0, false, false);
+        init_func = ir_builder_create_function(builder, "__scorivm_init", init_func_type);
         current_init_block = ir_builder_create_block(builder, "ingressus");
     } else {
         current_init_block = init_func->last_block;
@@ -1855,7 +1855,7 @@ void ir_gen_generate(IrBuilder* builder, AstNode** programs, int count, int opt_
                 for (int j = 0; j < decl->as.func_decl.param_count; j++) {
                     Symbol* param_sym = decl->as.func_decl.params[j]->resolved_symbol;
                     if (param_sym) {
-                        ScoriaType* ptype = param_sym->type;
+                        ScorivmType* ptype = param_sym->type;
                         if (type_get_size(ptype) > 8) ptype = type_get_via(ptype);
                         arg_vals[j + param_offset] = ir_get_param(builder, j + param_offset, ptype);
                     }
@@ -1904,7 +1904,7 @@ void ir_gen_generate(IrBuilder* builder, AstNode** programs, int count, int opt_
         }
     }
 
-    // 结束 __scoria_init 函数
+    // 结束 __scorivm_init 函数
     SirFunction* prev_func = builder->current_func;
     SirBlock* prev_block = builder->current_block;
     builder->current_func = init_func;

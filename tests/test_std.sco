@@ -5,7 +5,7 @@ consule liber systema;
 
 actio edita princeps() -> i32 {
     sit fasc_nomen: textus = "test_output.txt";
-    sit contentus: textus = "Salve, Scoria!\nHaec est probatio tabularii.\n";
+    sit contentus: textus = "Salve, Scorivm!\nHaec est probatio tabularii.\n";
 
     // 1. 测试写入文件
     scribe("=== Probatio: scribe_fasc ===\n");

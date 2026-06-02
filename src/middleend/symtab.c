@@ -70,7 +70,7 @@ void symtab_leave_scope(Symtab* symtab) {
     }
 }
 
-bool symtab_define(Symtab* symtab, Token name, SymbolKind kind, ScoriaType* type, AstNode* node, bool is_editus) {
+bool symtab_define(Symtab* symtab, Token name, SymbolKind kind, ScorivmType* type, AstNode* node, bool is_editus) {
     Scope* scope = symtab->current_scope;
     
     // 检查是否已存在

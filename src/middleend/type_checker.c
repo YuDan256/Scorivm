@@ -16,26 +16,26 @@ static void type_error(TypeChecker* checker, Token token, const char* message) {
 // ---------------------------------------------------------
 // 前置声明
 // ---------------------------------------------------------
-static ScoriaType* resolve_type_node(TypeChecker* checker, AstNode* type_node);
+static ScorivmType* resolve_type_node(TypeChecker* checker, AstNode* type_node);
 static void check_statement(TypeChecker* checker, AstNode* stmt);
-static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaType* expected_type);
+static ScorivmType* check_expression(TypeChecker* checker, AstNode* expr, ScorivmType* expected_type);
 static bool check_returns(AstNode* stmt);
 
 // ---------------------------------------------------------
-// 类型解析 (AST_TYPE -> ScoriaType)
+// 类型解析 (AST_TYPE -> ScorivmType)
 // ---------------------------------------------------------
-static ScoriaType* resolve_type_node(TypeChecker* checker, AstNode* type_node) {
+static ScorivmType* resolve_type_node(TypeChecker* checker, AstNode* type_node) {
     if (!type_node || type_node->kind != AST_TYPE) return type_get_basic(TY_UNKNOWN);
 
     // 处理修饰符 (递归处理 inner_type)
     if (type_node->as.type_node.is_via) {
-        ScoriaType* inner = resolve_type_node(checker, type_node->as.type_node.inner_type);
+        ScorivmType* inner = resolve_type_node(checker, type_node->as.type_node.inner_type);
         return type_get_via(inner);
     } else if (type_node->as.type_node.is_cohors) {
-        ScoriaType* inner = resolve_type_node(checker, type_node->as.type_node.inner_type);
+        ScorivmType* inner = resolve_type_node(checker, type_node->as.type_node.inner_type);
         return type_get_cohors(inner);
     } else if (type_node->as.type_node.is_acies) {
-        ScoriaType* inner = resolve_type_node(checker, type_node->as.type_node.inner_type);
+        ScorivmType* inner = resolve_type_node(checker, type_node->as.type_node.inner_type);
         uint32_t length = 0;
         // 简化处理：假设数组大小在语法解析阶段已经是一个常量整数节点
         if (type_node->as.type_node.array_size && type_node->as.type_node.array_size->kind == AST_LITERAL_EXPR) {
@@ -51,7 +51,7 @@ static ScoriaType* resolve_type_node(TypeChecker* checker, AstNode* type_node) {
         return type_get_acies(inner, length);
     }
 
-    ScoriaType* base_type = NULL;
+    ScorivmType* base_type = NULL;
     Token base_tok = type_node->as.type_node.base_type;
 
     // 解析基础类型或结构体名
@@ -146,7 +146,7 @@ static uint64_t parse_roman_numeral(const char* str) {
     return total;
 }
 
-static void parse_and_check_literal(TypeChecker* checker, AstNode* expr, ScoriaType* expected_type, bool is_negative) {
+static void parse_and_check_literal(TypeChecker* checker, AstNode* expr, ScorivmType* expected_type, bool is_negative) {
     Token token = expr->token;
     char buf[128];
     int len = token.length < 127 ? token.length : 127;
@@ -216,13 +216,13 @@ static bool is_lvalue(AstNode* expr) {
 // ---------------------------------------------------------
 // 表达式类型检查 (Type Checking Pass - Expressions)
 // ---------------------------------------------------------
-static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaType* expected_type) {
+static ScorivmType* check_expression(TypeChecker* checker, AstNode* expr, ScorivmType* expected_type) {
     if (!expr) return type_get_basic(TY_UNKNOWN);
 
     bool is_negative = checker->is_negative_context;
     checker->is_negative_context = false; // 立即消耗掉该上下文，防止污染子表达式
 
-    ScoriaType* type = type_get_basic(TY_UNKNOWN);
+    ScorivmType* type = type_get_basic(TY_UNKNOWN);
 
     switch (expr->kind) {
         case AST_LITERAL_EXPR:
@@ -254,16 +254,16 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
                     type = type_get_acies(type_get_basic(TY_UNKNOWN), 0);
                 }
             } else {
-                ScoriaType* elem_expected = NULL;
+                ScorivmType* elem_expected = NULL;
                 if (expected_type && expected_type->kind == TY_ACIES) {
                     elem_expected = expected_type->as.array.inner;
                 } else if (expected_type && expected_type->kind == TY_COHORS) {
                     elem_expected = expected_type->as.inner;
                 }
 
-                ScoriaType* elem_type = check_expression(checker, expr->as.array_literal.elements[0], elem_expected);
+                ScorivmType* elem_type = check_expression(checker, expr->as.array_literal.elements[0], elem_expected);
                 for (int i = 1; i < expr->as.array_literal.element_count; i++) {
-                    ScoriaType* t = check_expression(checker, expr->as.array_literal.elements[i], elem_expected ? elem_expected : elem_type);
+                    ScorivmType* t = check_expression(checker, expr->as.array_literal.elements[i], elem_expected ? elem_expected : elem_type);
                     if (!type_equals(elem_type, t)) {
                         type_error(checker, expr->as.array_literal.elements[i]->token, "Typi elementorum in acie non congruunt.");
                     }
@@ -274,7 +274,7 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
         }
 
         case AST_STRUCT_LITERAL: {
-            ScoriaType* struct_type = NULL;
+            ScorivmType* struct_type = NULL;
             if (expr->as.struct_literal.type_expr) {
                 struct_type = check_expression(checker, expr->as.struct_literal.type_expr, NULL);
             } else {
@@ -300,7 +300,7 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
                 // 检查字段
                 for (int i = 0; i < expr->as.struct_literal.field_count; i++) {
                     Token field_name = expr->as.struct_literal.field_names[i];
-                    ScoriaType* expected_field_type = NULL;
+                    ScorivmType* expected_field_type = NULL;
                     bool found = false;
                     
                     if (struct_type->kind == TY_COHORS) {
@@ -322,7 +322,7 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
                         }
                     }
                     
-                    ScoriaType* val_type = check_expression(checker, expr->as.struct_literal.field_values[i], expected_field_type);
+                    ScorivmType* val_type = check_expression(checker, expr->as.struct_literal.field_values[i], expected_field_type);
                     
                     if (!found) {
                         type_error(checker, field_name, "Campus in forma, unione vel cohorte non inventus est.");
@@ -347,11 +347,11 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
         }
 
         case AST_ASSIGN_EXPR: {
-            ScoriaType* target_type = check_expression(checker, expr->as.assign.target, NULL);
+            ScorivmType* target_type = check_expression(checker, expr->as.assign.target, NULL);
             if (!is_lvalue(expr->as.assign.target)) {
                 type_error(checker, expr->as.assign.target->token, "Expressio ad sinistram assignationis assignabilis esse debet.");
             }
-            ScoriaType* value_type = check_expression(checker, expr->as.assign.value, target_type);
+            ScorivmType* value_type = check_expression(checker, expr->as.assign.value, target_type);
             
             if (!type_equals(target_type, value_type)) {
                 type_error(checker, expr->token, "In assignatione typi non congruunt (conversio implicita nulla est).");
@@ -361,8 +361,8 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
         }
 
         case AST_BINARY_EXPR: {
-            ScoriaType* left_type = check_expression(checker, expr->as.binary.left, expected_type);
-            ScoriaType* right_type = check_expression(checker, expr->as.binary.right, left_type);
+            ScorivmType* left_type = check_expression(checker, expr->as.binary.left, expected_type);
+            ScorivmType* right_type = check_expression(checker, expr->as.binary.right, left_type);
 
             if (!type_equals(left_type, right_type)) {
                 type_error(checker, expr->token, "In expressione binaria typi operandorum non congruunt.");
@@ -384,7 +384,7 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
         }
 
         case AST_UNARY_EXPR: {
-            ScoriaType* operand_expected = NULL;
+            ScorivmType* operand_expected = NULL;
             if (expr->as.unary.op.kind == TK_KW_LOCUS && expected_type && expected_type->kind == TY_VIA) {
                 operand_expected = expected_type->as.inner;
             } else if (expr->as.unary.op.kind == TK_KW_TENE && expected_type) {
@@ -399,12 +399,12 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
                 checker->is_negative_context = true;
             }
             
-            ScoriaType* operand_type = check_expression(checker, expr->as.unary.operand, operand_expected);
+            ScorivmType* operand_type = check_expression(checker, expr->as.unary.operand, operand_expected);
             
             if (expr->as.unary.op.kind == TK_KW_LOCUS) {
                 // 检查是否对位域取址
                 if (expr->as.unary.operand->kind == AST_MEMBER_EXPR) {
-                    ScoriaType* obj_type = expr->as.unary.operand->as.member_expr.object->expr_type;
+                    ScorivmType* obj_type = expr->as.unary.operand->as.member_expr.object->expr_type;
                     if (obj_type && obj_type->kind == TY_VIA) obj_type = obj_type->as.inner;
                     if (obj_type && (obj_type->kind == TY_FORMA || obj_type->kind == TY_UNIO)) {
                         int bit_size = 0;
@@ -443,7 +443,7 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
         }
 
         case AST_CALL_EXPR: {
-            ScoriaType* callee_type = check_expression(checker, expr->as.call.callee, NULL);
+            ScorivmType* callee_type = check_expression(checker, expr->as.call.callee, NULL);
             if (callee_type->kind != TY_ACTIO) {
                 type_error(checker, expr->token, "Actiones solae vocari possunt.");
                 break;
@@ -460,7 +460,7 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
                 type_error(checker, expr->token, "Argumenta pauciora quam exspectata sunt.");
             } else {
                 for (int i = 0; i < expr->as.call.arg_count; i++) {
-                    ScoriaType* expected_arg_type = NULL;
+                    ScorivmType* expected_arg_type = NULL;
                     if (i < fixed_param_count) {
                         expected_arg_type = callee_type->as.func_type.param_types[i];
                     } else if (is_native_var) {
@@ -468,7 +468,7 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
                         expected_arg_type = callee_type->as.func_type.param_types[fixed_param_count]->as.inner;
                     } // FFI 变长参数 (is_var && !is_native_var) 没有期望类型
 
-                    ScoriaType* arg_type = check_expression(checker, expr->as.call.args[i], expected_arg_type);
+                    ScorivmType* arg_type = check_expression(checker, expr->as.call.args[i], expected_arg_type);
                     
                     if (expected_arg_type && !type_equals(expected_arg_type, arg_type)) {
                         type_error(checker, expr->as.call.args[i]->token, "Typus argumenti non congruit.");
@@ -480,7 +480,7 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
         }
 
         case AST_MEMBER_EXPR: {
-            ScoriaType* obj_type = check_expression(checker, expr->as.member_expr.object, NULL);
+            ScorivmType* obj_type = check_expression(checker, expr->as.member_expr.object, NULL);
 
             // 模块命名空间访问 (如 math_lib.Vector)
             if (obj_type->kind == TY_MODULE) {
@@ -565,7 +565,7 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
         }
 
         case AST_CREA_EXPR: {
-            ScoriaType* target_type = resolve_type_node(checker, expr->as.crea_expr.type);
+            ScorivmType* target_type = resolve_type_node(checker, expr->as.crea_expr.type);
             if (expr->as.crea_expr.count) {
                 check_expression(checker, expr->as.crea_expr.count, type_get_basic(TY_I64));
             }
@@ -574,7 +574,7 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
         }
 
         case AST_NECA_EXPR: {
-            ScoriaType* ptr_type = check_expression(checker, expr->as.neca_expr.pointer, NULL);
+            ScorivmType* ptr_type = check_expression(checker, expr->as.neca_expr.pointer, NULL);
             if (ptr_type->kind != TY_VIA) {
                 type_error(checker, expr->token, "'neca' ad 'via' solum applicari potest.");
             }
@@ -583,7 +583,7 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
         }
 
         case AST_SIZEOF_EXPR: {
-            ScoriaType* target_type = NULL;
+            ScorivmType* target_type = NULL;
             if (expr->as.sizeof_expr.target_type) {
                 target_type = resolve_type_node(checker, expr->as.sizeof_expr.target_type);
             } else if (expr->as.sizeof_expr.target_expr) {
@@ -608,8 +608,8 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
         }
 
         case AST_INDEX_EXPR: {
-            ScoriaType* target_type = check_expression(checker, expr->as.index_expr.target, NULL);
-            ScoriaType* index_type = check_expression(checker, expr->as.index_expr.index, type_get_basic(TY_I64));
+            ScorivmType* target_type = check_expression(checker, expr->as.index_expr.target, NULL);
+            ScorivmType* index_type = check_expression(checker, expr->as.index_expr.index, type_get_basic(TY_I64));
             
             if (target_type->kind == TY_ACIES) {
                 type = target_type->as.array.inner;
@@ -628,8 +628,8 @@ static ScoriaType* check_expression(TypeChecker* checker, AstNode* expr, ScoriaT
 
         case AST_VADE_EXPR:
         case AST_RECEDE_EXPR: {
-            ScoriaType* ptr_type = check_expression(checker, expr->as.pointer_offset.pointer, NULL);
-            ScoriaType* offset_type = check_expression(checker, expr->as.pointer_offset.offset, type_get_basic(TY_I64));
+            ScorivmType* ptr_type = check_expression(checker, expr->as.pointer_offset.pointer, NULL);
+            ScorivmType* offset_type = check_expression(checker, expr->as.pointer_offset.offset, type_get_basic(TY_I64));
 
             if (ptr_type->kind != TY_VIA && ptr_type->kind != TY_COHORS) {
                 type_error(checker, expr->token, "'vade/recede' ad 'via' vel 'cohors' solum applicari potest.");
@@ -692,17 +692,17 @@ static void check_statement(TypeChecker* checker, AstNode* stmt) {
 
         case AST_VAR_DECL:
         case AST_CONST_DECL: {
-            ScoriaType* declared_type = NULL;
+            ScorivmType* declared_type = NULL;
             if (stmt->as.var_decl.type) {
                 declared_type = resolve_type_node(checker, stmt->as.var_decl.type);
             }
 
-            ScoriaType* init_type = NULL;
+            ScorivmType* init_type = NULL;
             if (stmt->as.var_decl.initializer) {
                 init_type = check_expression(checker, stmt->as.var_decl.initializer, declared_type);
             }
 
-            ScoriaType* final_type = declared_type;
+            ScorivmType* final_type = declared_type;
             if (declared_type && init_type) {
                 if (!type_equals(declared_type, init_type)) {
                     type_error(checker, stmt->token, "Typus valoris initialis cum typo declarato non congruit.");
@@ -728,7 +728,7 @@ static void check_statement(TypeChecker* checker, AstNode* stmt) {
         }
 
         case AST_RETURN_STMT: {
-            ScoriaType* return_value_type = type_get_basic(TY_NIHIL);
+            ScorivmType* return_value_type = type_get_basic(TY_NIHIL);
             if (stmt->as.return_stmt.value) {
                 return_value_type = check_expression(checker, stmt->as.return_stmt.value, checker->current_function_return_type);
             }
@@ -744,7 +744,7 @@ static void check_statement(TypeChecker* checker, AstNode* stmt) {
         }
 
         case AST_IF_STMT: {
-            ScoriaType* cond_type = check_expression(checker, stmt->as.if_stmt.condition, type_get_basic(TY_LOGICA));
+            ScorivmType* cond_type = check_expression(checker, stmt->as.if_stmt.condition, type_get_basic(TY_LOGICA));
             if (cond_type->kind != TY_LOGICA) {
                 type_error(checker, stmt->token, "Condicio in 'si' logica esse debet.");
             }
@@ -756,7 +756,7 @@ static void check_statement(TypeChecker* checker, AstNode* stmt) {
         }
 
         case AST_WHILE_STMT: {
-            ScoriaType* cond_type = check_expression(checker, stmt->as.while_stmt.condition, type_get_basic(TY_LOGICA));
+            ScorivmType* cond_type = check_expression(checker, stmt->as.while_stmt.condition, type_get_basic(TY_LOGICA));
             if (cond_type->kind != TY_LOGICA) {
                 type_error(checker, stmt->token, "Condicio in 'dum' logica esse debet.");
             }
@@ -772,7 +772,7 @@ static void check_statement(TypeChecker* checker, AstNode* stmt) {
                 check_statement(checker, stmt->as.for_stmt.initializer);
             }
             if (stmt->as.for_stmt.condition) {
-                ScoriaType* cond_type = check_expression(checker, stmt->as.for_stmt.condition, type_get_basic(TY_LOGICA));
+                ScorivmType* cond_type = check_expression(checker, stmt->as.for_stmt.condition, type_get_basic(TY_LOGICA));
                 if (cond_type->kind != TY_LOGICA) {
                     type_error(checker, stmt->token, "Condicio in 'per' logica esse debet.");
                 }
@@ -809,10 +809,10 @@ static void check_statement(TypeChecker* checker, AstNode* stmt) {
             break;
 
         case AST_SWITCH_STMT: {
-            ScoriaType* cond_type = check_expression(checker, stmt->as.switch_stmt.condition, NULL);
+            ScorivmType* cond_type = check_expression(checker, stmt->as.switch_stmt.condition, NULL);
             for (int i = 0; i < stmt->as.switch_stmt.case_count; i++) {
                 for (int j = 0; j < stmt->as.switch_stmt.case_val_counts[i]; j++) {
-                    ScoriaType* case_type = check_expression(checker, stmt->as.switch_stmt.case_vals[i][j], cond_type);
+                    ScorivmType* case_type = check_expression(checker, stmt->as.switch_stmt.case_vals[i][j], cond_type);
                     if (!type_equals(cond_type, case_type)) {
                         type_error(checker, stmt->as.switch_stmt.case_vals[i][j]->token, "Typus casus cum condicione non congruit.");
                     }
@@ -844,12 +844,12 @@ static void collect_declarations(TypeChecker* checker, AstNode* program) {
     for (int i = 0; i < program->as.program.decl_count; i++) {
         AstNode* decl = program->as.program.declarations[i];
         if (decl->kind == AST_STRUCT_DECL) {
-            ScoriaType* forma_type = type_create_forma(decl->as.struct_decl.name, decl->as.struct_decl.is_densa);
+            ScorivmType* forma_type = type_create_forma(decl->as.struct_decl.name, decl->as.struct_decl.is_densa);
             if (!symtab_define(&checker->symtab, decl->as.struct_decl.name, SYM_STRUCT, forma_type, decl, decl->as.struct_decl.is_editus)) {
                 type_error(checker, decl->as.struct_decl.name, "Nomen formae iam definitum est.");
             }
         } else if (decl->kind == AST_UNION_DECL) {
-            ScoriaType* unio_type = type_create_unio(decl->as.struct_decl.name, decl->as.struct_decl.is_densa);
+            ScorivmType* unio_type = type_create_unio(decl->as.struct_decl.name, decl->as.struct_decl.is_densa);
             if (!symtab_define(&checker->symtab, decl->as.struct_decl.name, SYM_UNION, unio_type, decl, decl->as.struct_decl.is_editus)) {
                 type_error(checker, decl->as.struct_decl.name, "Nomen unionis iam definitum est.");
             }
@@ -858,7 +858,7 @@ static void collect_declarations(TypeChecker* checker, AstNode* program) {
                 type_error(checker, decl->as.type_alias_decl.name, "Nomen imaginis iam definitum est.");
             }
         } else if (decl->kind == AST_ENUM_DECL) {
-            ScoriaType* enum_type = type_create_enum(decl->as.enum_decl.name);
+            ScorivmType* enum_type = type_create_enum(decl->as.enum_decl.name);
             if (!symtab_define(&checker->symtab, decl->as.enum_decl.name, SYM_ENUM, enum_type, decl, decl->as.enum_decl.is_editus)) {
                 type_error(checker, decl->as.enum_decl.name, "Nomen ordinis iam definitum est.");
             }
@@ -872,10 +872,10 @@ static void collect_declarations(TypeChecker* checker, AstNode* program) {
         if (decl->kind == AST_STRUCT_DECL || decl->kind == AST_UNION_DECL) {
             Symbol* sym = symtab_lookup(&checker->symtab, decl->as.struct_decl.name);
             if (sym && (sym->type->kind == TY_FORMA || sym->type->kind == TY_UNIO)) {
-                ScoriaType* comp_type = sym->type;
+                ScorivmType* comp_type = sym->type;
                 for (int j = 0; j < decl->as.struct_decl.field_count; j++) {
                     AstNode* field = decl->as.struct_decl.fields[j];
-                    ScoriaType* field_type = resolve_type_node(checker, field->as.var_decl.type);
+                    ScorivmType* field_type = resolve_type_node(checker, field->as.var_decl.type);
                     
                     uint8_t bit_size = 0;
                     if (field->as.var_decl.bit_size) {
@@ -907,7 +907,7 @@ static void collect_declarations(TypeChecker* checker, AstNode* program) {
             }
         } 
         else if (decl->kind == AST_FUNC_DECL) {
-            ScoriaType* return_type = type_get_basic(TY_NIHIL);
+            ScorivmType* return_type = type_get_basic(TY_NIHIL);
             if (decl->as.func_decl.return_type) {
                 return_type = resolve_type_node(checker, decl->as.func_decl.return_type);
             }
@@ -917,15 +917,15 @@ static void collect_declarations(TypeChecker* checker, AstNode* program) {
             }
 
             int param_count = decl->as.func_decl.param_count;
-            ScoriaType** param_types = NULL;
+            ScorivmType** param_types = NULL;
             if (param_count > 0) {
-                param_types = (ScoriaType**)malloc(sizeof(ScoriaType*) * param_count);
+                param_types = (ScorivmType**)malloc(sizeof(ScorivmType*) * param_count);
                 if (!param_types) {
                     fprintf(stderr, "Memoria non sufficit.\n");
                     exit(1);
                 }
                 for (int j = 0; j < param_count; j++) {
-                    ScoriaType* pt = resolve_type_node(checker, decl->as.func_decl.params[j]->as.var_decl.type);
+                    ScorivmType* pt = resolve_type_node(checker, decl->as.func_decl.params[j]->as.var_decl.type);
                     if (decl->as.func_decl.is_native_variadic && j == param_count - 1) {
                         pt = type_get_cohors(pt); // 原生变长参数自动降级为切片
                     }
@@ -933,7 +933,7 @@ static void collect_declarations(TypeChecker* checker, AstNode* program) {
                 }
             }
 
-            ScoriaType* actio_type = type_create_actio(return_type, param_types, param_count, decl->as.func_decl.is_variadic, decl->as.func_decl.is_native_variadic);
+            ScorivmType* actio_type = type_create_actio(return_type, param_types, param_count, decl->as.func_decl.is_variadic, decl->as.func_decl.is_native_variadic);
             if (param_types) free(param_types);
 
             if (!symtab_define(&checker->symtab, decl->as.func_decl.name, SYM_FUNC, actio_type, decl, decl->as.func_decl.is_editus)) {
@@ -941,7 +941,7 @@ static void collect_declarations(TypeChecker* checker, AstNode* program) {
             }
         }
         else if (decl->kind == AST_VAR_DECL || decl->kind == AST_CONST_DECL) {
-            ScoriaType* var_type = NULL;
+            ScorivmType* var_type = NULL;
             if (decl->as.var_decl.type) {
                 var_type = resolve_type_node(checker, decl->as.var_decl.type);
             }
@@ -961,7 +961,7 @@ static void collect_declarations(TypeChecker* checker, AstNode* program) {
         else if (decl->kind == AST_ENUM_DECL) {
             Symbol* sym = symtab_lookup(&checker->symtab, decl->as.enum_decl.name);
             if (sym && sym->type->kind == TY_ENUM) {
-                ScoriaType* enum_type = sym->type;
+                ScorivmType* enum_type = sym->type;
                 int64_t current_val = 0;
                 for (int j = 0; j < decl->as.enum_decl.variant_count; j++) {
                     Token v_name = decl->as.enum_decl.variant_names[j];
@@ -1138,7 +1138,7 @@ bool type_checker_run(TypeChecker* checker, AstNode** programs, int count) {
                     
                     for (int k = 0; k < decl->as.func_decl.param_count; k++) {
                         AstNode* param = decl->as.func_decl.params[k];
-                        ScoriaType* param_type = resolve_type_node(checker, param->as.var_decl.type);
+                        ScorivmType* param_type = resolve_type_node(checker, param->as.var_decl.type);
                         if (decl->as.func_decl.is_native_variadic && k == decl->as.func_decl.param_count - 1) {
                             param_type = type_get_cohors(param_type); // 原生变长参数在函数体内表现为切片
                         }
@@ -1160,9 +1160,9 @@ bool type_checker_run(TypeChecker* checker, AstNode** programs, int count) {
                 }
             } else if (decl->kind == AST_VAR_DECL || decl->kind == AST_CONST_DECL) {
                 Symbol* sym = symtab_lookup_current(&checker->symtab, decl->as.var_decl.name);
-                ScoriaType* declared_type = sym ? sym->type : NULL;
+                ScorivmType* declared_type = sym ? sym->type : NULL;
 
-                ScoriaType* init_type = NULL;
+                ScorivmType* init_type = NULL;
                 if (decl->as.var_decl.initializer) {
                     init_type = check_expression(checker, decl->as.var_decl.initializer, declared_type);
                 }

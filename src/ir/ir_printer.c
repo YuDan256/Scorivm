@@ -1,7 +1,7 @@
 #include "ir_printer.h"
 #include <string.h>
 
-static void print_type(FILE* out, ScoriaType* type) {
+static void print_type(FILE* out, ScorivmType* type) {
     if (!type) { fprintf(out, "ignotus"); return; }
     switch (type->kind) {
         case TY_I8: fprintf(out, "i8"); break;

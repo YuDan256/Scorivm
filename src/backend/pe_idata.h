@@ -1,5 +1,5 @@
-#ifndef SCORIA_PE_IDATA_H
-#define SCORIA_PE_IDATA_H
+#ifndef SCORIVM_PE_IDATA_H
+#define SCORIVM_PE_IDATA_H
 
 #include <stdint.h>
 #include "pe_linker.h"
@@ -22,4 +22,4 @@ void pe_idata_build(PeImportTable* it, PeCodeBuffer* rdata_section, uint32_t rda
 // 获取指定函数在 rdata_section 中的 IAT 条目偏移量 (用于 call [rip + rel32] 重定位)
 uint32_t pe_idata_get_iat_offset(PeImportTable* it, const char* dll_name, const char* func_name);
 
-#endif // SCORIA_PE_IDATA_H
+#endif // SCORIVM_PE_IDATA_H

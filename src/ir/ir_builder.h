@@ -1,5 +1,5 @@
-#ifndef SCORIA_IR_BUILDER_H
-#define SCORIA_IR_BUILDER_H
+#ifndef SCORIVM_IR_BUILDER_H
+#define SCORIVM_IR_BUILDER_H
 
 #include "sir.h"
 #include "../utils/memory_arena.h"
@@ -31,9 +31,9 @@ void ir_builder_free(IrBuilder* builder);
 // ---------------------------------------------------------
 // 结构构建 API
 // ---------------------------------------------------------
-SirGlobalVar* ir_builder_create_global(IrBuilder* builder, const char* name_start, int name_len, ScoriaType* type, int size, uint8_t* init_data);
+SirGlobalVar* ir_builder_create_global(IrBuilder* builder, const char* name_start, int name_len, ScorivmType* type, int size, uint8_t* init_data);
 void ir_builder_add_extern(IrBuilder* builder, const char* name_start, int name_len, const char* dll_start, int dll_len);
-SirFunction* ir_builder_create_function(IrBuilder* builder, const char* name, ScoriaType* func_type);
+SirFunction* ir_builder_create_function(IrBuilder* builder, const char* name, ScorivmType* func_type);
 SirBlock* ir_builder_create_block(IrBuilder* builder, const char* name);
 SirBlock* ir_builder_get_or_create_label_block(IrBuilder* builder, const char* name_start, int name_len);
 void ir_builder_set_insert_point(IrBuilder* builder, SirBlock* block);
@@ -41,8 +41,8 @@ void ir_builder_set_insert_point(IrBuilder* builder, SirBlock* block);
 // ---------------------------------------------------------
 // 值创建 API
 // ---------------------------------------------------------
-SirValue* ir_const_int(IrBuilder* builder, ScoriaType* type, int64_t val);
-SirValue* ir_const_float(IrBuilder* builder, ScoriaType* type, double val);
+SirValue* ir_const_int(IrBuilder* builder, ScorivmType* type, int64_t val);
+SirValue* ir_const_float(IrBuilder* builder, ScorivmType* type, double val);
 SirValue* ir_const_bool(IrBuilder* builder, bool val);
 SirValue* ir_const_string(IrBuilder* builder, const char* val, uint32_t len);
 
@@ -51,13 +51,13 @@ SirValue* ir_const_string(IrBuilder* builder, const char* val, uint32_t len);
 // ---------------------------------------------------------
 SirValue* ir_build_binary(IrBuilder* builder, SirOpcode op, SirValue* left, SirValue* right);
 SirValue* ir_build_unary(IrBuilder* builder, SirOpcode op, SirValue* operand);
-SirValue* ir_build_alloca(IrBuilder* builder, ScoriaType* type, int size);
+SirValue* ir_build_alloca(IrBuilder* builder, ScorivmType* type, int size);
 SirValue* ir_build_load(IrBuilder* builder, SirValue* ptr);
 void ir_build_store(IrBuilder* builder, SirValue* val, SirValue* ptr);
-SirValue* ir_build_gep(IrBuilder* builder, SirValue* ptr, SirValue* index, int element_size, ScoriaType* res_type);
+SirValue* ir_build_gep(IrBuilder* builder, SirValue* ptr, SirValue* index, int element_size, ScorivmType* res_type);
 void ir_build_memcpy(IrBuilder* builder, SirValue* dest_ptr, SirValue* src_ptr, int size);
-SirValue* ir_build_cast(IrBuilder* builder, SirValue* val, ScoriaType* target_type);
-SirValue* ir_build_call(IrBuilder* builder, SirValue* callee, SirValue** args, int arg_count, ScoriaType* ret_type);
+SirValue* ir_build_cast(IrBuilder* builder, SirValue* val, ScorivmType* target_type);
+SirValue* ir_build_call(IrBuilder* builder, SirValue* callee, SirValue** args, int arg_count, ScorivmType* ret_type);
 void ir_build_jmp(IrBuilder* builder, SirBlock* target);
 void ir_build_br(IrBuilder* builder, SirValue* cond, SirBlock* true_block, SirBlock* false_block);
 void ir_build_switch(IrBuilder* builder, SirValue* cond, SirBlock* default_block, SirValue** case_vals, SirBlock** case_blocks, int case_count);
@@ -66,11 +66,11 @@ void ir_build_trap(IrBuilder* builder);
 SirValue* ir_build_select(IrBuilder* builder, SirValue* cond, SirValue* true_val, SirValue* false_val);
 
 // 获取函数的第 N 个参数 (作为虚拟寄存器)
-SirValue* ir_get_param(IrBuilder* builder, int index, ScoriaType* type);
+SirValue* ir_get_param(IrBuilder* builder, int index, ScorivmType* type);
 
 // ---------------------------------------------------------
 // IR 优化 API
 // ---------------------------------------------------------
 void ir_optimize_module(IrBuilder* builder, int opt_level);
 
-#endif // SCORIA_IR_BUILDER_H
+#endif // SCORIVM_IR_BUILDER_H

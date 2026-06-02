@@ -1,5 +1,5 @@
-#ifndef SCORIA_PARSER_H
-#define SCORIA_PARSER_H
+#ifndef SCORIVM_PARSER_H
+#define SCORIVM_PARSER_H
 
 #include "lexer.h"
 #include "ast.h"
@@ -33,4 +33,4 @@ void parser_free(Parser* parser);
  */
 AstNode* parse_program(Parser* parser);
 
-#endif // SCORIA_PARSER_H
+#endif // SCORIVM_PARSER_H

@@ -37,7 +37,7 @@ void ir_builder_free(IrBuilder* builder) {
 // =========================================================
 // 结构构建 API
 // =========================================================
-SirGlobalVar* ir_builder_create_global(IrBuilder* builder, const char* name_start, int name_len, ScoriaType* type, int size, uint8_t* init_data) {
+SirGlobalVar* ir_builder_create_global(IrBuilder* builder, const char* name_start, int name_len, ScorivmType* type, int size, uint8_t* init_data) {
     SirGlobalVar* gvar = (SirGlobalVar*)arena_alloc(&builder->arena, sizeof(SirGlobalVar));
     char* name = (char*)arena_alloc(&builder->arena, name_len + 1);
     strncpy(name, name_start, name_len);
@@ -85,7 +85,7 @@ void ir_builder_add_extern(IrBuilder* builder, const char* name_start, int name_
     builder->module->last_extern = ext;
 }
 
-SirFunction* ir_builder_create_function(IrBuilder* builder, const char* name, ScoriaType* func_type) {
+SirFunction* ir_builder_create_function(IrBuilder* builder, const char* name, ScorivmType* func_type) {
     SirFunction* func = (SirFunction*)arena_alloc(&builder->arena, sizeof(SirFunction));
     func->name = name;
     func->type = func_type;
@@ -152,26 +152,26 @@ void ir_builder_set_insert_point(IrBuilder* builder, SirBlock* block) {
 // =========================================================
 // 值创建 API
 // =========================================================
-static SirValue* create_value(IrBuilder* builder, SirValueKind kind, ScoriaType* type) {
+static SirValue* create_value(IrBuilder* builder, SirValueKind kind, ScorivmType* type) {
     SirValue* val = (SirValue*)arena_alloc(&builder->arena, sizeof(SirValue));
     val->kind = kind;
     val->type = type;
     return val;
 }
 
-static SirValue* create_vreg(IrBuilder* builder, ScoriaType* type) {
+static SirValue* create_vreg(IrBuilder* builder, ScorivmType* type) {
     SirValue* val = create_value(builder, SIR_VAL_VREG, type);
     val->as.vreg = builder->next_vreg++;
     return val;
 }
 
-SirValue* ir_const_int(IrBuilder* builder, ScoriaType* type, int64_t val) {
+SirValue* ir_const_int(IrBuilder* builder, ScorivmType* type, int64_t val) {
     SirValue* v = create_value(builder, SIR_VAL_CONST_INT, type);
     v->as.int_val = val;
     return v;
 }
 
-SirValue* ir_const_float(IrBuilder* builder, ScoriaType* type, double val) {
+SirValue* ir_const_float(IrBuilder* builder, ScorivmType* type, double val) {
     SirValue* v = create_value(builder, SIR_VAL_CONST_FLOAT, type);
     v->as.float_val = val;
     return v;
@@ -315,7 +315,7 @@ no_fold:;
     inst->operands[1] = right;
     
     // 简单推导结果类型：如果是比较指令，返回 logica；否则返回左操作数类型
-    ScoriaType* res_type = left->type;
+    ScorivmType* res_type = left->type;
     if (op >= SIR_ICMP_EQ && op <= SIR_FCMP_GE) {
         res_type = type_get_basic(TY_LOGICA);
     }
@@ -332,7 +332,7 @@ SirValue* ir_build_unary(IrBuilder* builder, SirOpcode op, SirValue* operand) {
     return inst->dest;
 }
 
-SirValue* ir_build_alloca(IrBuilder* builder, ScoriaType* type, int size) {
+SirValue* ir_build_alloca(IrBuilder* builder, ScorivmType* type, int size) {
     SirInst* inst = create_inst(builder, SIR_ALLOCA, 1);
     inst->operands[0] = ir_const_int(builder, type_get_basic(TY_I32), size);
     inst->dest = create_vreg(builder, type_get_via(type)); // alloca 总是返回 via T
@@ -361,7 +361,7 @@ SirValue* ir_build_load(IrBuilder* builder, SirValue* ptr) {
     inst->operands[0] = ptr;
     
     // ptr 必须是 via T，load 返回 T
-    ScoriaType* res_type = type_get_basic(TY_UNKNOWN);
+    ScorivmType* res_type = type_get_basic(TY_UNKNOWN);
     if (ptr->type && ptr->type->kind == TY_VIA) {
         res_type = ptr->type->as.inner;
     }
@@ -378,7 +378,7 @@ void ir_build_store(IrBuilder* builder, SirValue* val, SirValue* ptr) {
     // store 没有返回值 (dest 为 NULL)
 }
 
-SirValue* ir_build_gep(IrBuilder* builder, SirValue* ptr, SirValue* index, int element_size, ScoriaType* res_type) {
+SirValue* ir_build_gep(IrBuilder* builder, SirValue* ptr, SirValue* index, int element_size, ScorivmType* res_type) {
     if (!ptr || !index) return NULL;
     SirInst* inst = create_inst(builder, SIR_GEP, 3);
     inst->operands[0] = ptr;
@@ -396,7 +396,7 @@ void ir_build_memcpy(IrBuilder* builder, SirValue* dest_ptr, SirValue* src_ptr, 
     inst->operands[2] = ir_const_int(builder, type_get_basic(TY_I32), size);
 }
 
-SirValue* ir_build_cast(IrBuilder* builder, SirValue* val, ScoriaType* target_type) {
+SirValue* ir_build_cast(IrBuilder* builder, SirValue* val, ScorivmType* target_type) {
     if (!val) return NULL;
     
     // 常量类型转换折叠
@@ -430,7 +430,7 @@ SirValue* ir_build_cast(IrBuilder* builder, SirValue* val, ScoriaType* target_ty
     return inst->dest;
 }
 
-SirValue* ir_build_call(IrBuilder* builder, SirValue* callee, SirValue** args, int arg_count, ScoriaType* ret_type) {
+SirValue* ir_build_call(IrBuilder* builder, SirValue* callee, SirValue** args, int arg_count, ScorivmType* ret_type) {
     if (!callee) return NULL;
     SirInst* inst = create_inst(builder, SIR_CALL, arg_count + 1);
     inst->operands[0] = callee;
@@ -531,7 +531,7 @@ SirValue* ir_build_select(IrBuilder* builder, SirValue* cond, SirValue* true_val
     return inst->dest;
 }
 
-SirValue* ir_get_param(IrBuilder* builder, int index, ScoriaType* type) {
+SirValue* ir_get_param(IrBuilder* builder, int index, ScorivmType* type) {
     SirInst* inst = create_inst(builder, SIR_GET_PARAM, 1);
     inst->operands[0] = ir_const_int(builder, type_get_basic(TY_I32), index);
     inst->dest = create_vreg(builder, type);
@@ -1081,9 +1081,9 @@ end:
 
 typedef enum { PRINT_STR, PRINT_INT, PRINT_UINT, PRINT_CHAR, PRINT_FLOAT, PRINT_BOOL, PRINT_HEX } PrintType;
 static PrintType get_print_type(SirValue* arg) {
-    ScoriaType* arg_type = arg->type;
+    ScorivmType* arg_type = arg->type;
     bool is_via = (arg_type && arg_type->kind == TY_VIA);
-    ScoriaType* inner_type = is_via ? arg_type->as.inner : arg_type;
+    ScorivmType* inner_type = is_via ? arg_type->as.inner : arg_type;
     bool is_str = (inner_type && inner_type->kind == TY_COHORS && inner_type->as.inner->kind == TY_LITTERA);
     bool is_bool = (inner_type && inner_type->kind == TY_LOGICA) || (arg->kind == SIR_VAL_CONST_BOOL);
     bool is_char = (inner_type && inner_type->kind == TY_LITTERA);
@@ -1881,7 +1881,7 @@ static void ir_lower_builtins(IrBuilder* builder) {
                         else if (pt == PRINT_HEX) uses_print_hex = true;
                         else if (pt == PRINT_CHAR) uses_print_char = true;
                     } else if (strcmp(callee, "lege") == 0) {
-                        ScoriaType* target_type = inst->operands[1]->type;
+                        ScorivmType* target_type = inst->operands[1]->type;
                         if (target_type && target_type->kind == TY_VIA) target_type = target_type->as.inner;
                         if (target_type && (target_type->kind == TY_F32 || target_type->kind == TY_F64)) uses_lege_float = true;
                         else if (target_type && target_type->kind == TY_LITTERA) uses_lege_char = true;
@@ -2036,7 +2036,7 @@ static void ir_lower_builtins(IrBuilder* builder) {
                             else if (pt == PRINT_HEX) print_func->as.global_name = "__print_hex";
                             
                             SirValue* arg = inst->operands[1];
-                            ScoriaType* target_type = (pt == PRINT_FLOAT) ? type_get_basic(TY_F64) : ((pt == PRINT_BOOL) ? type_get_basic(TY_LOGICA) : ((pt == PRINT_UINT || pt == PRINT_HEX) ? type_get_basic(TY_P64) : type_get_basic(TY_I64)));
+                            ScorivmType* target_type = (pt == PRINT_FLOAT) ? type_get_basic(TY_F64) : ((pt == PRINT_BOOL) ? type_get_basic(TY_LOGICA) : ((pt == PRINT_UINT || pt == PRINT_HEX) ? type_get_basic(TY_P64) : type_get_basic(TY_I64)));
                             
                             if (arg->type && arg->type->kind != target_type->kind && pt != PRINT_BOOL) {
                                 SirInst* cast_arg = create_inst(builder, SIR_CAST, 1);
@@ -2056,7 +2056,7 @@ static void ir_lower_builtins(IrBuilder* builder) {
                         }
                         builder->current_block = block;
                     } else if (strcmp(callee, "lege") == 0) {
-                        ScoriaType* target_type = inst->operands[1]->type;
+                        ScorivmType* target_type = inst->operands[1]->type;
                         if (target_type && target_type->kind == TY_VIA) target_type = target_type->as.inner;
                         int size = target_type ? type_get_size(target_type) : 8;
                         if (size == 0 || size > 8) size = 8;
@@ -2850,7 +2850,7 @@ void ir_optimize_module(IrBuilder* builder, int opt_level) {
             }
             
             for (int i = 0; i < func_count; i++) {
-                if (strcmp(func_array[i]->name, "princeps") == 0 || strcmp(func_array[i]->name, "__scoria_init") == 0) {
+                if (strcmp(func_array[i]->name, "princeps") == 0 || strcmp(func_array[i]->name, "__scorivm_init") == 0) {
                     reachable[i] = true;
                 }
             }

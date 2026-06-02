@@ -1,6 +1,6 @@
-# Scoria 中间语言 (SIR) 设计方案
+# Scorivm 中间语言 (SIR) 设计方案
 
-为了将前端生成的抽象语法树（AST）平滑地转换为目标机器码或 C 语言代码，我们需要引入一层中间表示：**Scoria Intermediate Representation (SIR)**。
+为了将前端生成的抽象语法树（AST）平滑地转换为目标机器码或 C 语言代码，我们需要引入一层中间表示：**Scorivm Intermediate Representation (SIR)**。
 
 SIR 的设计目标是：**剥离高级语法糖，展平控制流，显式化内存操作，并为后续的优化（如常量折叠、死代码消除）提供标准化的数据结构。**
 
@@ -27,7 +27,7 @@ SIR 假设底层机器拥有**无限个虚拟寄存器**（通常以 `%1`, `%2`,
 
 ## 4. SIR 核心指令集 (Instruction Set)
 
-SIR 的指令集设计贴近底层硬件，但保留了 Scoria 的强类型特征：
+SIR 的指令集设计贴近底层硬件，但保留了 Scorivm 的强类型特征：
 
 ### A. 算术与逻辑运算
 *   `ADD`, `SUB`, `MUL`, `DIV`, `MOD`

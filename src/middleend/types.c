@@ -3,7 +3,7 @@
 #include <string.h>
 
 // 基础类型单例
-static ScoriaType basic_types[] = {
+static ScorivmType basic_types[] = {
     {TY_UNKNOWN}, {TY_NIHIL}, {TY_NULLUS},
     {TY_I8}, {TY_I16}, {TY_I32}, {TY_I64},
     {TY_P8}, {TY_P16}, {TY_P32}, {TY_P64},
@@ -21,7 +21,7 @@ static ScoriaType basic_types[] = {
 
 // 简单的链表用于 Type Interning
 typedef struct TypeNode {
-    ScoriaType* type;
+    ScorivmType* type;
     struct TypeNode* next;
 } TypeNode;
 
@@ -31,14 +31,14 @@ void types_init(void) {
     interned_types = NULL;
 }
 
-ScoriaType* type_get_basic(TypeKind kind) {
+ScorivmType* type_get_basic(TypeKind kind) {
     if (kind >= TY_UNKNOWN && kind <= TY_MODULE) {
         return &basic_types[kind];
     }
     return &basic_types[TY_UNKNOWN];
 }
 
-bool type_equals(ScoriaType* a, ScoriaType* b) {
+bool type_equals(ScorivmType* a, ScorivmType* b) {
     if (a == b) return true;
     if (!a || !b) return false;
     // 允许 nullus 隐式匹配任何指针、切片或函数类型
@@ -72,7 +72,7 @@ bool type_equals(ScoriaType* a, ScoriaType* b) {
     }
 }
 
-static bool type_strict_equals(ScoriaType* a, ScoriaType* b) {
+static bool type_strict_equals(ScorivmType* a, ScorivmType* b) {
     if (a == b) return true;
     if (!a || !b) return false;
     if (a->kind != b->kind) return false;
@@ -104,7 +104,7 @@ static bool type_strict_equals(ScoriaType* a, ScoriaType* b) {
     }
 }
 
-static ScoriaType* intern_type(ScoriaType* new_type) {
+static ScorivmType* intern_type(ScorivmType* new_type) {
     for (TypeNode* node = interned_types; node != NULL; node = node->next) {
         if (type_strict_equals(node->type, new_type)) {
             free(new_type); // 已经存在，释放新分配的
@@ -119,30 +119,30 @@ static ScoriaType* intern_type(ScoriaType* new_type) {
     return new_type;
 }
 
-ScoriaType* type_get_via(ScoriaType* inner) {
-    ScoriaType* t = (ScoriaType*)malloc(sizeof(ScoriaType));
+ScorivmType* type_get_via(ScorivmType* inner) {
+    ScorivmType* t = (ScorivmType*)malloc(sizeof(ScorivmType));
     t->kind = TY_VIA;
     t->as.inner = inner;
     return intern_type(t);
 }
 
-ScoriaType* type_get_cohors(ScoriaType* inner) {
-    ScoriaType* t = (ScoriaType*)malloc(sizeof(ScoriaType));
+ScorivmType* type_get_cohors(ScorivmType* inner) {
+    ScorivmType* t = (ScorivmType*)malloc(sizeof(ScorivmType));
     t->kind = TY_COHORS;
     t->as.inner = inner;
     return intern_type(t);
 }
 
-ScoriaType* type_get_acies(ScoriaType* inner, uint32_t length) {
-    ScoriaType* t = (ScoriaType*)malloc(sizeof(ScoriaType));
+ScorivmType* type_get_acies(ScorivmType* inner, uint32_t length) {
+    ScorivmType* t = (ScorivmType*)malloc(sizeof(ScorivmType));
     t->kind = TY_ACIES;
     t->as.array.inner = inner;
     t->as.array.length = length;
     return intern_type(t);
 }
 
-ScoriaType* type_create_forma(Token name, bool is_densa) {
-    ScoriaType* t = (ScoriaType*)malloc(sizeof(ScoriaType));
+ScorivmType* type_create_forma(Token name, bool is_densa) {
+    ScorivmType* t = (ScorivmType*)malloc(sizeof(ScorivmType));
     t->kind = TY_FORMA;
     t->as.struct_type.name = name;
     t->as.struct_type.fields = NULL;
@@ -151,8 +151,8 @@ ScoriaType* type_create_forma(Token name, bool is_densa) {
     return t; // 结构体通过名字区分，不放入 intern 池
 }
 
-ScoriaType* type_create_unio(Token name, bool is_densa) {
-    ScoriaType* t = (ScoriaType*)malloc(sizeof(ScoriaType));
+ScorivmType* type_create_unio(Token name, bool is_densa) {
+    ScorivmType* t = (ScorivmType*)malloc(sizeof(ScorivmType));
     t->kind = TY_UNIO;
     t->as.struct_type.name = name;
     t->as.struct_type.fields = NULL;
@@ -161,7 +161,7 @@ ScoriaType* type_create_unio(Token name, bool is_densa) {
     return t; // 联合体通过名字区分，不放入 intern 池
 }
 
-void type_forma_add_field(ScoriaType* forma_type, Token name, ScoriaType* field_type, uint8_t bit_size) {
+void type_forma_add_field(ScorivmType* forma_type, Token name, ScorivmType* field_type, uint8_t bit_size) {
     if (forma_type->kind != TY_FORMA && forma_type->kind != TY_UNIO) return;
     
     int count = forma_type->as.struct_type.field_count;
@@ -172,8 +172,8 @@ void type_forma_add_field(ScoriaType* forma_type, Token name, ScoriaType* field_
     forma_type->as.struct_type.field_count++;
 }
 
-ScoriaType* type_create_enum(Token name) {
-    ScoriaType* t = (ScoriaType*)malloc(sizeof(ScoriaType));
+ScorivmType* type_create_enum(Token name) {
+    ScorivmType* t = (ScorivmType*)malloc(sizeof(ScorivmType));
     t->kind = TY_ENUM;
     t->as.enum_type.name = name;
     t->as.enum_type.variants = NULL;
@@ -181,7 +181,7 @@ ScoriaType* type_create_enum(Token name) {
     return t; // 枚举通过名字区分，不放入 intern 池
 }
 
-void type_enum_add_variant(ScoriaType* enum_type, Token name, int64_t value) {
+void type_enum_add_variant(ScorivmType* enum_type, Token name, int64_t value) {
     if (enum_type->kind != TY_ENUM) return;
     
     int count = enum_type->as.enum_type.variant_count;
@@ -191,7 +191,7 @@ void type_enum_add_variant(ScoriaType* enum_type, Token name, int64_t value) {
     enum_type->as.enum_type.variant_count++;
 }
 
-int type_get_align(ScoriaType* type) {
+int type_get_align(ScorivmType* type) {
     if (!type) return 1;
     switch (type->kind) {
         case TY_NIHIL: case TY_UNKNOWN: return 1;
@@ -224,7 +224,7 @@ int type_get_align(ScoriaType* type) {
     }
 }
 
-bool type_get_field_layout(ScoriaType* type, Token field_name, int* out_byte_offset, int* out_bit_offset, int* out_bit_size) {
+bool type_get_field_layout(ScorivmType* type, Token field_name, int* out_byte_offset, int* out_bit_offset, int* out_bit_size) {
     if (!type || (type->kind != TY_FORMA && type->kind != TY_UNIO)) return false;
     if (type->kind == TY_UNIO) {
         if (out_byte_offset) *out_byte_offset = 0;
@@ -290,7 +290,7 @@ bool type_get_field_layout(ScoriaType* type, Token field_name, int* out_byte_off
     return false;
 }
 
-int type_get_field_offset(ScoriaType* type, Token field_name) {
+int type_get_field_offset(ScorivmType* type, Token field_name) {
     int byte_offset = 0;
     if (type_get_field_layout(type, field_name, &byte_offset, NULL, NULL)) {
         return byte_offset;
@@ -298,7 +298,7 @@ int type_get_field_offset(ScoriaType* type, Token field_name) {
     return -1;
 }
 
-int type_get_size(ScoriaType* type) {
+int type_get_size(ScorivmType* type) {
     if (!type) return 0;
     switch (type->kind) {
         case TY_NIHIL: case TY_UNKNOWN: return 0;
@@ -374,18 +374,18 @@ int type_get_size(ScoriaType* type) {
     }
 }
 
-bool type_is_signed(ScoriaType* type) {
+bool type_is_signed(ScorivmType* type) {
     if (!type) return false;
     return type->kind == TY_I8 || type->kind == TY_I16 || type->kind == TY_I32 || type->kind == TY_I64 || type->kind == TY_ENUM;
 }
 
-bool type_is_unsigned(ScoriaType* type) {
+bool type_is_unsigned(ScorivmType* type) {
     if (!type) return false;
     return type->kind == TY_P8 || type->kind == TY_P16 || type->kind == TY_P32 || type->kind == TY_P64 || type->kind == TY_LITTERA || type->kind == TY_LOGICA;
 }
 
-ScoriaType* type_create_actio(ScoriaType* return_type, ScoriaType** param_types, int param_count, bool is_variadic, bool is_native_variadic) {
-    ScoriaType* t = (ScoriaType*)malloc(sizeof(ScoriaType));
+ScorivmType* type_create_actio(ScorivmType* return_type, ScorivmType** param_types, int param_count, bool is_variadic, bool is_native_variadic) {
+    ScorivmType* t = (ScorivmType*)malloc(sizeof(ScorivmType));
     t->kind = TY_ACTIO;
     t->as.func_type.return_type = return_type;
     t->as.func_type.param_count = param_count;
@@ -393,8 +393,8 @@ ScoriaType* type_create_actio(ScoriaType* return_type, ScoriaType** param_types,
     t->as.func_type.is_native_variadic = is_native_variadic;
     t->as.func_type.param_types = NULL;
     if (param_count > 0) {
-        t->as.func_type.param_types = (ScoriaType**)malloc(sizeof(ScoriaType*) * param_count);
-        memcpy(t->as.func_type.param_types, param_types, sizeof(ScoriaType*) * param_count);
+        t->as.func_type.param_types = (ScorivmType**)malloc(sizeof(ScorivmType*) * param_count);
+        memcpy(t->as.func_type.param_types, param_types, sizeof(ScorivmType*) * param_count);
     }
     return t;
 }

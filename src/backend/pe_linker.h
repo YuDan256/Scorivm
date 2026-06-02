@@ -1,5 +1,5 @@
-#ifndef SCORIA_PE_LINKER_H
-#define SCORIA_PE_LINKER_H
+#ifndef SCORIVM_PE_LINKER_H
+#define SCORIVM_PE_LINKER_H
 
 #include "../ir/sir.h"
 #include <stdio.h>
@@ -50,4 +50,4 @@ void pe_linker_free(PeLinker* linker);
 // 将 SIR 模块直接编译并链接为 Windows PE 可执行文件 (.exe)
 bool pe_linker_generate_executable(PeLinker* linker, SirModule* module, const char* output_filename, int opt_level);
 
-#endif // SCORIA_PE_LINKER_H
+#endif // SCORIVM_PE_LINKER_H

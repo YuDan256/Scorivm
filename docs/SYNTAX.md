@@ -1,16 +1,16 @@
-# Scoria 语言语法设计说明 (alpha)
+# Scorivm 语言语法设计说明 (alpha)
 
-基于当前前端（Lexer & Parser）的实现，Scoria 语言的语法设计呈现出强烈的古典罗马风格与现代系统级编程语言的严谨性。
+基于当前前端（Lexer & Parser）的实现，Scorivm 语言的语法设计呈现出强烈的古典罗马风格与现代系统级编程语言的严谨性。
 
 ## 0. 核心哲学 (Philosophia Nuclei)
 
-*   **绝不依赖 C 标准库 (No C Standard Library Dependency)**：Scoria 是一门纯粹的底层系统级语言。为了保证其能够在没有任何 C 运行时 (CRT) 的裸机 (Bare Metal) 或自研操作系统上运行，Scoria 的标准库和核心实现**绝不**调用 `libc` (如 `msvcrt.dll`, `glibc` 等)。所有与外部环境的交互必须直接通过 `barbara` (FFI) 绑定操作系统的最底层内核 API (如 Windows 的 `kernel32.dll` 或 Linux 的 Syscalls)。
+*   **绝不依赖 C 标准库 (No C Standard Library Dependency)**：Scorivm 是一门纯粹的底层系统级语言。为了保证其能够在没有任何 C 运行时 (CRT) 的裸机 (Bare Metal) 或自研操作系统上运行，Scorivm 的标准库和核心实现**绝不**调用 `libc` (如 `msvcrt.dll`, `glibc` 等)。所有与外部环境的交互必须直接通过 `barbara` (FFI) 绑定操作系统的最底层内核 API (如 Windows 的 `kernel32.dll` 或 Linux 的 Syscalls)。
 
 以下是当前支持的语法全景：
 
 ## 1. 模块与可见性 (Systema Modulorum)
 
-Scoria 摒弃了传统的 `#include`，采用纯净的命名空间管理：
+Scorivm 摒弃了传统的 `#include`，采用纯净的命名空间管理：
 
 *   **声明当前模块**：`liber <模块名>;` (必须在文件顶部)
 *   **引入整个模块**：`consule liber <模块名>;`
@@ -44,7 +44,7 @@ Scoria 摒弃了传统的 `#include`，采用纯净的命名空间管理：
 ## 4. 函数与控制流 (Actio et Fluxus)
 
 *   **函数定义**：
-    ```scoria
+    ```scorivm
     // 内部函数 (支持原生同构变长参数，使用 etc 声明，底层自动降级为 cohors 切片)
     actio [edita] <函数名>(<参数名>: <类型>, etc <变长参数名>: <类型>) -> <返回类型> {
         // 函数体
@@ -55,7 +55,7 @@ Scoria 摒弃了传统的 `#include`，采用纯净的命名空间管理：
     actio barbara("dll_nomen") <函数名>(<参数名>: <类型>, etc) -> <返回类型>;
     ```
 *   **条件分支**：
-    ```scoria
+    ```scorivm
     si (条件) {
         // ...
     } aliter si (条件) {
@@ -65,7 +65,7 @@ Scoria 摒弃了传统的 `#include`，采用纯净的命名空间管理：
     }
     ```
 *   **多路分支 (Switch)**：
-    ```scoria
+    ```scorivm
     elige (条件) {
         casus 1:
             // 匹配 1 时执行。默认不贯穿 (No Fallthrough)，执行完自动跳出
@@ -77,12 +77,12 @@ Scoria 摒弃了传统的 `#include`，采用纯净的命名空间管理：
     ```
     *注：当 `casus` 值为密集整数时，编译器底层会自动优化为 O(1) 的跳转表 (Jump Table)。*
 *   **无条件跳转 (Goto)**：
-    ```scoria
+    ```scorivm
     sali <标签名>;
     <标签名>:
     ```
 *   **循环**：
-    ```scoria
+    ```scorivm
     dum (条件) {
         // ...
     }
@@ -96,7 +96,7 @@ Scoria 摒弃了传统的 `#include`，采用纯净的命名空间管理：
 
 ## 5. 内存与指针操作 (Memoria)
 
-Scoria 提供了极其显式的内存操作指令，**绝对拒绝指针类型的隐式转换**：
+Scorivm 提供了极其显式的内存操作指令，**绝对拒绝指针类型的隐式转换**：
 
 *   **空值与不透明指针**：
     *   `nullus`：纯粹的空指针字面量（Bottom Type），**唯一**允许隐式转换为任何指针类型（`via T`, `cohors T`, `actio`）的值。
@@ -113,7 +113,7 @@ Scoria 提供了极其显式的内存操作指令，**绝对拒绝指针类型�
 
 *   **枚举 (Ordo)**：
     使用 `ordo` 关键字声明一组强类型的常量集合。底层严格等价于 `i32`，零运行时开销。
-    ```scoria
+    ```scorivm
     ordo [edita] <枚举名> {
         <变体名1> [= <常量表达式>],
         <变体名2>, // 自动递增
@@ -124,22 +124,22 @@ Scoria 提供了极其显式的内存操作指令，**绝对拒绝指针类型�
     ```
 *   **类型别名 (Imago)**：
     使用 `imago` 关键字为现有类型创建透明的等价别名。在底层编译时，别名会被完全展开，零运行时开销。
-    ```scoria
+    ```scorivm
     imago [edita] <别名> = <目标类型>;
     // 示例: imago AstNodePtr = via AstNode;
     ```
 *   **标准结构体**：遵循 C ABI 内存对齐。
-    ```scoria
+    ```scorivm
     forma [edita] <结构体名> {
         sit <字段名>: <类型>;
     }
     ```
 *   **实密结构体**：使用 `densa` 关键字，剥离对齐填充 (Packed)。形容词后置。
-    ```scoria
+    ```scorivm
     forma [densa] [edita] <结构体名> { ... }
     ```
 *   **联合体**：所有字段共享同一块内存，大小为最大字段的大小（对齐到最大对齐要求）。使用 `densa` 关键字可剥离对齐填充。
-    ```scoria
+    ```scorivm
     unio [densa] [edita] <联合体名> {
         sit <字段名>: <类型>;
     }
@@ -156,8 +156,8 @@ Scoria 提供了极其显式的内存操作指令，**绝对拒绝指针类型�
 *   **自适应类型推导 (Top-Down Type Inference)**：
     *   纯数字字面量（如 `10`, `0xFF`）会根据上下文（如 `sit x: i8 = 10;`）自动推导为目标类型，并在编译期进行严格的值域安全校验（精确区分正负数边界）。
 *   **文本字面量 (Text Literals)**：
-    *   **无隐式零截断 (No Implicit Null-Terminator)**：Scoria 编译器**绝对不会**在字符串字面量末尾隐式追加 `\0`。`textus` 的本质是纯粹的切片 (`cohors littera`)，由指针和精确的长度构成。如果需要直接通过 `barbara` (FFI) 将字符串传递给期望 C 风格字符串的外部函数，开发者**必须**在字面量末尾显式写出 `\0`。
-    *   **显式边界哲学 (Explicit Boundary Philosophy)**：Scoria 拒绝任何形式的隐式内存填充。标准库（如 `fasc.sco`）在封装底层 C ABI 时，会在内部显式处理 `\0` 的转换，对用户保持透明（如调用 `lege_fasc("test.sco")` 无需手动补零）。同时，标准库返回的切片（如读取的文件内容）严格遵循原始数据的精确长度，绝不隐式追加多余的 `\0` 字节。
+    *   **无隐式零截断 (No Implicit Null-Terminator)**：Scorivm 编译器**绝对不会**在字符串字面量末尾隐式追加 `\0`。`textus` 的本质是纯粹的切片 (`cohors littera`)，由指针和精确的长度构成。如果需要直接通过 `barbara` (FFI) 将字符串传递给期望 C 风格字符串的外部函数，开发者**必须**在字面量末尾显式写出 `\0`。
+    *   **显式边界哲学 (Explicit Boundary Philosophy)**：Scorivm 拒绝任何形式的隐式内存填充。标准库（如 `fasc.sco`）在封装底层 C ABI 时，会在内部显式处理 `\0` 的转换，对用户保持透明（如调用 `lege_fasc("test.sco")` 无需手动补零）。同时，标准库返回的切片（如读取的文件内容）严格遵循原始数据的精确长度，绝不隐式追加多余的 `\0` 字节。
 *   **字面量前缀**：
     *   十六进制：`0x...`
     *   二进制：`0b...`
@@ -167,13 +167,13 @@ Scoria 提供了极其显式的内存操作指令，**绝对拒绝指针类型�
 
 ## 9. 位域与微粒 (Campi Micularum)
 
-在底层系统编程（如编写 OS 内核、驱动、网络协议栈）中，经常需要精确控制硬件寄存器或协议头中的比特位。Scoria 引入了 `mica`（微粒）关键字来实现位域（Bitfield）。
+在底层系统编程（如编写 OS 内核、驱动、网络协议栈）中，经常需要精确控制硬件寄存器或协议头中的比特位。Scorivm 引入了 `mica`（微粒）关键字来实现位域（Bitfield）。
 
 ### 9.1 语法设计 (Syntaxis)
 
 使用拉丁词 `mica`（微粒，缩写 `mic`）来声明一个字段在内存中占据的精确比特数。
 
-```scoria
+```scorivm
 forma edita StatusReg {
     sit is_ready: logica mica 1;  // 仅占 1 bit
     sit error_code: p8 mic 3;     // 占 3 bits
@@ -193,7 +193,7 @@ forma edita StatusReg {
 
 ## 10. 辅音骨架缩写对照表 (Tabula Isomorphismi)
 
-基于“无元音提取法则”，Scoria 支持使用辅音骨架作为古典长词的等价缩写，在底层 AST 中它们被映射为完全相同的物理标记：
+基于“无元音提取法则”，Scorivm 支持使用辅音骨架作为古典长词的等价缩写，在底层 AST 中它们被映射为完全相同的物理标记：
 
 | 古典罗马全称 | 辅音骨架缩写 | 功用说明 |
 | :--- | :--- | :--- |

@@ -1,5 +1,5 @@
-#ifndef SCORIA_X86_MIR_H
-#define SCORIA_X86_MIR_H
+#ifndef SCORIVM_X86_MIR_H
+#define SCORIVM_X86_MIR_H
 
 #include "../ir/sir.h"
 #include <stdint.h>
@@ -112,4 +112,4 @@ typedef struct {
 X86Module* x86_mir_build(SirModule* module, int opt_level);
 void x86_mir_free(X86Module* module);
 
-#endif // SCORIA_X86_MIR_H
+#endif // SCORIVM_X86_MIR_H

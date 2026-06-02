@@ -1,5 +1,5 @@
-#ifndef SCORIA_SYMTAB_H
-#define SCORIA_SYMTAB_H
+#ifndef SCORIVM_SYMTAB_H
+#define SCORIVM_SYMTAB_H
 
 #include "types.h"
 #include "../frontend/ast.h"
@@ -20,7 +20,7 @@ struct SirValue; // 前置声明
 struct Symbol {
     Token name;
     SymbolKind kind;
-    ScoriaType* type;
+    ScorivmType* type;
     AstNode* node; // 声明该符号的 AST 节点
     bool is_editus;
     bool is_resolving; // 用于检测类型别名的循环依赖
@@ -51,7 +51,7 @@ void symtab_enter_scope(Symtab* symtab);
 void symtab_leave_scope(Symtab* symtab);
 
 // 在当前作用域定义符号
-bool symtab_define(Symtab* symtab, Token name, SymbolKind kind, ScoriaType* type, AstNode* node, bool is_editus);
+bool symtab_define(Symtab* symtab, Token name, SymbolKind kind, ScorivmType* type, AstNode* node, bool is_editus);
 
 // 向上查找符号
 Symbol* symtab_lookup(Symtab* symtab, Token name);
@@ -65,4 +65,4 @@ Symbol* symtab_lookup_in_scope(Scope* scope, Token name);
 // 在当前作用域插入一个已存在符号的别名 (用于跨模块导入)
 bool symtab_insert_alias(Symtab* symtab, Token name, Symbol* target);
 
-#endif // SCORIA_SYMTAB_H
+#endif // SCORIVM_SYMTAB_H

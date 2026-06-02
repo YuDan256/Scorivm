@@ -1,10 +1,10 @@
-#ifndef SCORIA_TOKEN_H
-#define SCORIA_TOKEN_H
+#ifndef SCORIVM_TOKEN_H
+#define SCORIVM_TOKEN_H
 
 #include <stdint.h>
 
 /**
- * @brief Scoria 语言词法单元全景枚举
+ * @brief Scorivm 语言词法单元全景枚举
  */
 typedef enum {
     TK_EOF = 0,
@@ -85,4 +85,4 @@ typedef struct {
     uint32_t column;
 } Token;
 
-#endif // SCORIA_TOKEN_H
+#endif // SCORIVM_TOKEN_H

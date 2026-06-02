@@ -1,5 +1,5 @@
-#ifndef SCORIA_LEXER_H
-#define SCORIA_LEXER_H
+#ifndef SCORIVM_LEXER_H
+#define SCORIVM_LEXER_H
 
 #include "token.h"
 #include <stdbool.h>
@@ -24,4 +24,4 @@ void lexer_init(Lexer* lexer, const char* source);
  */
 Token lexer_next_token(Lexer* lexer);
 
-#endif // SCORIA_LEXER_H
+#endif // SCORIVM_LEXER_H

@@ -1,5 +1,5 @@
-#ifndef SCORIA_MEMORY_ARENA_H
-#define SCORIA_MEMORY_ARENA_H
+#ifndef SCORIVM_MEMORY_ARENA_H
+#define SCORIVM_MEMORY_ARENA_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -40,4 +40,4 @@ void* arena_realloc(Arena* arena, void* old_ptr, size_t old_size, size_t new_siz
  */
 void arena_free(Arena* arena);
 
-#endif // SCORIA_MEMORY_ARENA_H
+#endif // SCORIVM_MEMORY_ARENA_H

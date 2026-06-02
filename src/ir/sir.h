@@ -1,5 +1,5 @@
-#ifndef SCORIA_SIR_H
-#define SCORIA_SIR_H
+#ifndef SCORIVM_SIR_H
+#define SCORIVM_SIR_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -63,7 +63,7 @@ typedef struct SirBlock SirBlock;
 
 typedef struct SirValue {
     SirValueKind kind;
-    ScoriaType* type;     // 该值的类型
+    ScorivmType* type;     // 该值的类型
     union {
         uint32_t vreg;
         int64_t int_val;
@@ -110,7 +110,7 @@ struct SirBlock {
 // =========================================================
 typedef struct SirFunction {
     const char* name;
-    ScoriaType* type;     // 必须是 TY_ACTIO
+    ScorivmType* type;     // 必须是 TY_ACTIO
     
     SirBlock* first_block;
     SirBlock* last_block;
@@ -133,7 +133,7 @@ typedef struct SirFunction {
 // =========================================================
 typedef struct SirGlobalVar {
     const char* name;
-    ScoriaType* type;
+    ScorivmType* type;
     int size;
     uint8_t* init_data; // 如果非空，则包含编译期确定的初始值
     struct SirGlobalVar* next;
@@ -164,4 +164,4 @@ typedef struct SirModule {
     SirExternFunc* last_extern;
 } SirModule;
 
-#endif // SCORIA_SIR_H
+#endif // SCORIVM_SIR_H

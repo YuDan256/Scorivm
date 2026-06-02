@@ -1,5 +1,5 @@
-#ifndef SCORIA_REG_ALLOC_H
-#define SCORIA_REG_ALLOC_H
+#ifndef SCORIVM_REG_ALLOC_H
+#define SCORIVM_REG_ALLOC_H
 
 #include "../ir/sir.h"
 #include <stdint.h>
@@ -33,4 +33,4 @@ int reg_alloc_get_color(RegAllocator* allocator, uint32_t vreg);
 // 为溢出的虚拟寄存器分配栈空间 (返回相对于 %rbp 的负偏移量)
 int reg_alloc_get_offset(RegAllocator* allocator, uint32_t vreg, int size);
 
-#endif // SCORIA_REG_ALLOC_H
+#endif // SCORIVM_REG_ALLOC_H

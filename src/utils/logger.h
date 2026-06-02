@@ -1,5 +1,5 @@
-#ifndef SCORIA_LOGGER_H
-#define SCORIA_LOGGER_H
+#ifndef SCORIVM_LOGGER_H
+#define SCORIVM_LOGGER_H
 
 #include <stdio.h>
 
@@ -24,4 +24,4 @@ void log_msg(LogLevel level, const char* format, ...);
 #define LOG_ERROR(...) log_msg(LOG_ERROR, __VA_ARGS__)
 #define LOG_DEBUG(...) log_msg(LOG_DEBUG, __VA_ARGS__)
 
-#endif // SCORIA_LOGGER_H
+#endif // SCORIVM_LOGGER_H

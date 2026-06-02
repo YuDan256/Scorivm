@@ -1,5 +1,5 @@
-#ifndef SCORIA_AST_H
-#define SCORIA_AST_H
+#ifndef SCORIVM_AST_H
+#define SCORIVM_AST_H
 
 #include <stdbool.h>
 #include "token.h"
@@ -53,7 +53,7 @@ typedef enum {
 } AstNodeKind;
 
 typedef struct AstNode AstNode;
-typedef struct ScoriaType ScoriaType; // 中端类型系统前置声明
+typedef struct ScorivmType ScorivmType; // 中端类型系统前置声明
 typedef struct Symbol Symbol;         // 中端符号表前置声明
 
 /**
@@ -64,7 +64,7 @@ struct AstNode {
     Token token; // 关联的核心 Token，用于报错定位
     
     // --- 中端语义注解 (Semantic Annotations) ---
-    ScoriaType* expr_type;     // 表达式求值后的具体类型 (Type Checker 填充)
+    ScorivmType* expr_type;     // 表达式求值后的具体类型 (Type Checker 填充)
     Symbol* resolved_symbol;   // 标识符解析后指向的符号表条目 (Symtab 填充)
     
     union {
@@ -276,4 +276,4 @@ struct AstNode {
  */
 AstNode* ast_create_node(Arena* arena, AstNodeKind kind, Token token);
 
-#endif // SCORIA_AST_H
+#endif // SCORIVM_AST_H

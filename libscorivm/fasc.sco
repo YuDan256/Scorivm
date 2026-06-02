@@ -49,7 +49,7 @@ lex OPEN_EXISTING: DWORD = 3;
 lex CREATE_ALWAYS: DWORD = 2;
 lex FILE_ATTRIBUTE_NORMAL: DWORD = 0x80;
 
-// ================= [ Scoria 封装 ] =================
+// ================= [ Scorivm 封装 ] =================
 
 // 读取整个文件，返回一个包含文件内容的切片 (cohors littera)
 // 注意：调用者在使用完毕后，需要负责调用 neca(返回的切片.caput) 释放内存

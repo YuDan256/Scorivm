@@ -948,8 +948,8 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
                         break;
                     }
                     case SIR_CAST: {
-                        ScoriaType* src_type = inst->operands[0]->type;
-                        ScoriaType* dst_type = inst->dest->type;
+                        ScorivmType* src_type = inst->operands[0]->type;
+                        ScorivmType* dst_type = inst->dest->type;
                         bool src_is_float = (src_type && (src_type->kind == TY_F32 || src_type->kind == TY_F64));
                         bool dst_is_float = (dst_type && (dst_type->kind == TY_F32 || dst_type->kind == TY_F64));
 

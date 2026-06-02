@@ -13,9 +13,9 @@ act princeps() -> medius {
     sit msg1: textus = "--- Test FFI & Multi-file ---\0";
     puts(msg1.locus);
     
-    sit msg2: textus = "Scoria\0";
+    sit msg2: textus = "Scorivm\0";
     sit len: integer = strlen(msg2.locus);
-    scb("Longitudo verbi 'Scoria' est: ", len, "\n");
+    scb("Longitudo verbi 'Scorivm' est: ", len, "\n");
     
     // 也可以直接获取胖指针的长度
     scb("Longitudo ex textus: ", msg2.longitudo, "\n");

@@ -471,7 +471,7 @@ static void generate_machine_code(PeLinker* linker, SirModule* module, int opt_l
             func_offsets[current_func_idx++] = (uint32_t)linker->text_section.size;
 
             if (strcmp(func->name, "princeps") == 0) g_princeps_offset = (uint32_t)linker->text_section.size;
-            else if (strcmp(func->name, "__scoria_init") == 0) g_init_offset = (uint32_t)linker->text_section.size;
+            else if (strcmp(func->name, "__scorivm_init") == 0) g_init_offset = (uint32_t)linker->text_section.size;
 
             for (X86Block* block = func->first_block; block; block = block->next) {
                 if (block != func->first_block) { while (linker->text_section.size % 16 != 0) emit8(&linker->text_section, 0x90); }
@@ -490,7 +490,7 @@ static void generate_machine_code(PeLinker* linker, SirModule* module, int opt_l
         // mov [rsp+56], rdx (保存 argv 到 Caller 的 Shadow Space)
         emit_rex(cb, 1, 0, 0, 0); emit8(cb, 0x89); emit8(cb, 0x54); emit8(cb, 0x24); emit8(cb, 0x38);
     
-        // call __scoria_init
+        // call __scorivm_init
         emit8(cb, 0xE8);
         int32_t rel_init = (int32_t)(g_init_offset - (cb->size + 4));
         emit32(cb, (uint32_t)rel_init);

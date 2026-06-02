@@ -1,6 +1,6 @@
-# Scoria Git 提交规范 (COMMIT_CONVENTION.md)
+# Scorivm Git 提交规范 (COMMIT_CONVENTION.md)
 
-本文档规定了 Scoria 编译器的 Git 提交格式规范，旨在维护清晰的项目演进路线，降低 C 语言环境下的内存与 Bug 溯源成本，并强制要求在提交记录中留存编译原理推演与系统架构调整的设计逻辑。
+本文档规定了 Scorivm 编译器的 Git 提交格式规范，旨在维护清晰的项目演进路线，降低 C 语言环境下的内存与 Bug 溯源成本，并强制要求在提交记录中留存编译原理推演与系统架构调整的设计逻辑。
 
 ## 1. 提交信息结构
 
@@ -31,7 +31,7 @@
 
 ## 3. `<scope>` 作用模块
 
-界定当前提交影响的代码边界，必须与 Scoria 编译器物理目录划分严格对应：
+界定当前提交影响的代码边界，必须与 Scorivm 编译器物理目录划分严格对应：
 
 *   frontend : 词法分析 (Lexer)、抽象语法树 (AST) 构建、递归下降语法解析 (Parser)。
 *   middleend: 符号表与作用域控制、静态类型检查器 (Type Checker)。
@@ -78,7 +78,7 @@ perf(utils): adde arenam pro nodis ast
 core(middleend): coge terminum strictum inter litteram et p8
 
 【动机】
-过去的类型系统继承了 C 语言的宽容度，允许 littera (字符型) 隐式赋予未受 muta 重铸的 p8 (无符号 8 位整型)，这打破了 Scoria 绝对的强类型安全设计。
+过去的类型系统继承了 C 语言的宽容度，允许 littera (字符型) 隐式赋予未受 muta 重铸的 p8 (无符号 8 位整型)，这打破了 Scorivm 绝对的强类型安全设计。
 
 【原理】
 1. 在 type_checker.c 中加入强校验分支，从符号层隔离字符集与数值标识。
@@ -88,7 +88,7 @@ core(middleend): coge terminum strictum inter litteram et p8
 
 ## 7. 提交模板配置
 
-为保证提交格式统一，建议在 Scoria 根目录配置终端提交模板。请在项目根目录创建名为 `.gitmessage` 的文件，填入以下框架：
+为保证提交格式统一，建议在 Scorivm 根目录配置终端提交模板。请在项目根目录创建名为 `.gitmessage` 的文件，填入以下框架：
 
 ```
 <type>(<scope>): <subject_in_latin>
