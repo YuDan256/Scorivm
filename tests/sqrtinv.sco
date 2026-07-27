@@ -4,14 +4,13 @@ actio Q_rsqrt(numerus: f32) -> f32 {
     sit y: f32 = numerus;
     sit i: p32 = 0; 
     i = tene muta(via p32, locus y);
-    i = 0x5F3759DF - (i >> 1);
+    i = 0x5F3759DF - (i >> 1);  // Quid in infernum est id?
     y = tene muta(via f32, locus i);
     y = y * (threehalfs - (x2 * y * y));
     redde y;
 }
 
 actio princeps() -> i32 {
-    scribe("=== Probatio: Q_rsqrt ===\n");
     sit f: f32;
     scribe("Da mihi numerum fractum f, quaeso: ");
     lege(f);

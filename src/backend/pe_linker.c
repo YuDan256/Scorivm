@@ -11,7 +11,7 @@ typedef struct { uint16_t Magic; uint8_t MajorLinkerVersion; uint8_t MinorLinker
 typedef struct { uint8_t Name[8]; uint32_t VirtualSize; uint32_t VirtualAddress; uint32_t SizeOfRawData; uint32_t PointerToRawData; uint32_t PointerToRelocations; uint32_t PointerToLinenumbers; uint16_t NumberOfRelocations; uint16_t NumberOfLinenumbers; uint32_t Characteristics; } SectionHeader;
 #pragma pack(pop)
 
-static void buf_init(PeCodeBuffer* cb) { cb->capacity = 4096; cb->size = 0; cb->buffer = (uint8_t*)malloc(cb->capacity); }
+static void buf_init(PeCodeBuffer* cb) { cb->capacity = 4096; cb->size = 0; cb->buffer = (uint8_t*)malloc(cb->capacity); if (!cb->buffer) exit(1); }
 static void buf_free(PeCodeBuffer* cb) { free(cb->buffer); }
 static void buf_append(PeCodeBuffer* cb, uint8_t byte) {
     if (cb->size >= cb->capacity) {
@@ -137,6 +137,14 @@ static void emit_x86_inst(PeCodeBuffer* cb, X86Inst* inst, LinkCtx* ctx) {
     X86Operand* op0 = &inst->ops[0];
     X86Operand* op1 = &inst->ops[1];
     int w = (inst->num_ops > 0 && op0->size >= 8) ? 1 : 0;
+    
+    int force_rex = 0;
+    if (inst->num_ops > 0 && op0->kind == X86_OP_REG && op0->size == 1 && op0->as.reg >= 4 && op0->as.reg <= 7) force_rex = 1;
+    if (inst->num_ops > 1 && op1->kind == X86_OP_REG && op1->size == 1 && op1->as.reg >= 4 && op1->as.reg <= 7) force_rex = 1;
+#define emit_rex(cb, w, r, x, b) \
+    ((void)(((w) || (r) || (x) || (b) || force_rex) ? \
+        emit8(cb, (uint8_t)(0x40 | ((w) ? 8 : 0) | ((r) ? 4 : 0) | ((x) ? 2 : 0) | ((b) ? 1 : 0))) : (void)0))
+
     if (inst->num_ops > 0 && op0->size == 2) emit8(cb, 0x66);
 
     switch (opc) {
@@ -347,6 +355,7 @@ static void emit_x86_inst(PeCodeBuffer* cb, X86Inst* inst, LinkCtx* ctx) {
         }
         default: break;
     }
+#undef emit_rex
 }
 
 static void add_sys_extern(SirModule* mod, const char* name, const char* dll) {
@@ -354,6 +363,7 @@ static void add_sys_extern(SirModule* mod, const char* name, const char* dll) {
         if (strcmp(e->name, name) == 0) return;
     }
     SirExternFunc* ext = (SirExternFunc*)calloc(1, sizeof(SirExternFunc));
+    if (!ext) exit(1);
     ext->name = name;
     ext->dll_name = dll;
     ext->next = mod->first_extern;
@@ -553,6 +563,7 @@ bool pe_linker_generate_executable(PeLinker* linker, SirModule* module, const ch
     
     PeCodeBuffer iat_buf;
     iat_buf.capacity = 4096; iat_buf.size = 0; iat_buf.buffer = (uint8_t*)malloc(iat_buf.capacity);
+    if (!iat_buf.buffer) exit(1);
     uint32_t import_dir_offset = 0, import_dir_size = 0, iat_rva = 0, iat_size = 0;
     pe_idata_build(idata, &iat_buf, rdata_rva, &import_dir_offset, &import_dir_size, &iat_rva, &iat_size);
     
@@ -560,7 +571,9 @@ bool pe_linker_generate_executable(PeLinker* linker, SirModule* module, const ch
     for (size_t i = 0; i < linker->rdata_section.size; i++) {
         if (iat_buf.size >= iat_buf.capacity) {
             iat_buf.capacity *= 2;
-            iat_buf.buffer = (uint8_t*)realloc(iat_buf.buffer, iat_buf.capacity);
+            uint8_t* new_buf = (uint8_t*)realloc(iat_buf.buffer, iat_buf.capacity);
+            if (!new_buf) exit(1);
+            iat_buf.buffer = new_buf;
         }
         iat_buf.buffer[iat_buf.size++] = linker->rdata_section.buffer[i];
     }
@@ -607,11 +620,12 @@ bool pe_linker_generate_executable(PeLinker* linker, SirModule* module, const ch
         memcpy(linker->text_section.buffer + text_off, &rel32, 4);
     }
 
-    #define RELOC_IAT(reloc_var, dll, func) do { \
-        uint32_t iat_off = pe_idata_get_iat_offset(idata, dll, func); \
-        int32_t rel32 = (int32_t)((rdata_sec.VirtualAddress + iat_off) - (text_sec.VirtualAddress + reloc_var + 4)); \
-        memcpy(linker->text_section.buffer + reloc_var, &rel32, 4); \
-    } while(0)
+    #define RELOC_IAT(reloc_var, dll, func) \
+        { \
+            uint32_t iat_off = pe_idata_get_iat_offset(idata, dll, func); \
+            int32_t rel32 = (int32_t)((rdata_sec.VirtualAddress + iat_off) - (text_sec.VirtualAddress + reloc_var + 4)); \
+            memcpy(linker->text_section.buffer + reloc_var, &rel32, 4); \
+        }
     RELOC_IAT(g_call_exitprocess_reloc, "kernel32.dll", "ExitProcess");
 
     for (int i = 0; i < g_extern_reloc_count; i++) {
