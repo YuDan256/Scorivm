@@ -542,7 +542,7 @@ bool pe_linker_generate_executable(PeLinker* linker, SirModule* module, const ch
     OptionalHeader64 opt = {0}; opt.Magic = 0x020B; opt.AddressOfEntryPoint = sec_align + linker->entry_point_offset;
     opt.BaseOfCode = sec_align; opt.ImageBase = 0x140000000ULL; opt.SectionAlignment = sec_align; opt.FileAlignment = file_align;
     opt.MajorOperatingSystemVersion = 5; opt.MinorOperatingSystemVersion = 2; opt.MajorSubsystemVersion = 5; opt.MinorSubsystemVersion = 2;
-    opt.SizeOfHeaders = align_up((uint32_t)(sizeof(DosHeader) + sizeof(CoffHeader) + sizeof(OptionalHeader64) + sizeof(SectionHeader)), file_align);
+    opt.SizeOfHeaders = align_up((uint32_t)(sizeof(DosHeader) + sizeof(CoffHeader) + sizeof(OptionalHeader64) + sizeof(SectionHeader) * num_sections), file_align);
     opt.SizeOfImage = align_up(opt.SizeOfHeaders, sec_align) + align_up((uint32_t)linker->text_section.size, sec_align);
     opt.Subsystem = 3; opt.SizeOfStackReserve = 0x100000; opt.SizeOfStackCommit = 0x1000; opt.SizeOfHeapReserve = 0x100000; opt.SizeOfHeapCommit = 0x1000;
     opt.NumberOfRvaAndSizes = 16;

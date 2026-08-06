@@ -582,6 +582,7 @@ X86Module* x86_mir_build(SirModule* module, int opt_level) {
                         else if (inst->operands[0]->type) is_unsigned = type_is_unsigned(inst->operands[0]->type);
                         int size = inst->dest && inst->dest->type ? type_get_size(inst->dest->type) : 8;
                         if (size == 0 || size > 8) size = 8;
+                        if (size < 4) size = 4; // 提升到 32 位进行除法，避免 8/16 位除法的 AH/DX 复杂性
                         
                         X86Reg right_color = (inst->operands[1]->kind == SIR_VAL_VREG) ? reg_alloc_get_color(&allocator, inst->operands[1]->as.vreg) : -1;
                         X86Reg right_phys = (right_color != -1) ? get_phys_reg(right_color) : -1;
